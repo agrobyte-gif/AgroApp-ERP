@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_agrogood_root"
+              name="Agrogood"
+              sequence="5"/>
+
+    <menuitem id="menu_agrogood_configuration"
+              name="Configuracion"
+              parent="menu_agrogood_root"
+              sequence="90"
+              groups="agrogood_base.group_agrogood_general_admin,agrogood_base.group_agrogood_technical_admin"/>
+
+    <menuitem id="menu_agrogood_business_line"
+              name="Lineas comerciales"
+              parent="menu_agrogood_configuration"
+              action="agrogood_business_line_action"
+              sequence="10"/>
+
+</odoo>

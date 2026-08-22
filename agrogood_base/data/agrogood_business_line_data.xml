@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Las tres lineas con las que opera Agrogood hoy. Se cargan con noupdate="1"
+        para que una actualizacion del modulo no pise los ajustes que Ventas haya
+        hecho sobre ellas.
+    -->
+    <data noupdate="1">
+
+        <record id="business_line_horeca" model="agrogood.business.line">
+            <field name="name">HORECA</field>
+            <field name="code">HORECA</field>
+            <field name="sequence">10</field>
+            <field name="note">Hoteles, restaurantes y casinos. Entrega en ventana horaria pactada.</field>
+        </record>
+
+        <record id="business_line_mayorista" model="agrogood.business.line">
+            <field name="name">Mayorista</field>
+            <field name="code">MAYOR</field>
+            <field name="sequence">20</field>
+            <field name="note">Compra por volumen. Precio escalonado por cantidad.</field>
+        </record>
+
+        <record id="business_line_minorista" model="agrogood.business.line">
+            <field name="name">Minorista</field>
+            <field name="code">MINOR</field>
+            <field name="sequence">30</field>
+            <field name="note">Almacenes y ferias. Formatos de menor volumen.</field>
+        </record>
+
+    </data>
+</odoo>

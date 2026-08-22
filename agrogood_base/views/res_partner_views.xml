@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_partner_view_form_inherit_agrogood" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.agrogood</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <field name="category_id" position="after">
+                <field name="agrogood_business_line_id"
+                       groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="res_partner_view_search_inherit_agrogood" model="ir.ui.view">
+        <field name="name">res.partner.search.inherit.agrogood</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter"/>
+        <field name="arch" type="xml">
+            <filter name="type_company" position="after">
+                <separator/>
+                <filter name="groupby_agrogood_business_line" string="Linea comercial"
+                        context="{'group_by': 'agrogood_business_line_id'}"/>
+            </filter>
+        </field>
+    </record>
+
+</odoo>

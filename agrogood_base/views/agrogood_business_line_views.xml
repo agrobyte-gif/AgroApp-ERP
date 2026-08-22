@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="agrogood_business_line_view_list" model="ir.ui.view">
+        <field name="name">agrogood.business.line.list</field>
+        <field name="model">agrogood.business.line</field>
+        <field name="arch" type="xml">
+            <list string="Lineas comerciales">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="pricelist_id"/>
+                <field name="payment_term_id" optional="show"/>
+                <field name="partner_count" string="Clientes"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="agrogood_business_line_view_form" model="ir.ui.view">
+        <field name="name">agrogood.business.line.form</field>
+        <field name="model">agrogood.business.line</field>
+        <field name="arch" type="xml">
+            <form string="Linea comercial">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_partners" type="object"
+                                class="oe_stat_button" icon="fa-users">
+                            <field name="partner_count" widget="statinfo" string="Clientes"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archivada" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="HORECA"/></h1>
+                    </div>
+                    <group>
+                        <group name="identificacion">
+                            <field name="code" placeholder="HORECA"/>
+                            <field name="sequence"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group name="comercial">
+                            <field name="pricelist_id"/>
+                            <field name="payment_term_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Condiciones comerciales" name="conditions">
+                            <field name="note" placeholder="Condiciones aplicables a esta linea comercial."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="agrogood_business_line_view_search" model="ir.ui.view">
+        <field name="name">agrogood.business.line.search</field>
+        <field name="model">agrogood.business.line</field>
+        <field name="arch" type="xml">
+            <search string="Lineas comerciales">
+                <field name="name"/>
+                <field name="code"/>
+                <filter name="filter_inactive" string="Archivadas" domain="[('active','=',False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="agrogood_business_line_action" model="ir.actions.act_window">
+        <field name="name">Lineas comerciales</field>
+        <field name="res_model">agrogood.business.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define la primera linea comercial</p>
+            <p>Las lineas comerciales segmentan a los clientes de Agrogood y determinan
+               la tarifa y las condiciones que se proponen en cada pedido.</p>
+        </field>
+    </record>
+
+</odoo>

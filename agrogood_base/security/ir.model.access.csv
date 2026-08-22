@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_agrogood_business_line_sales,agrogood.business.line ventas,model_agrogood_business_line,group_agrogood_sales,1,1,1,0
+access_agrogood_business_line_admin,agrogood.business.line admin general,model_agrogood_business_line,group_agrogood_general_admin,1,1,1,1
+access_agrogood_business_line_logistics,agrogood.business.line logistica,model_agrogood_business_line,group_agrogood_logistics_manager,1,0,0,0
+access_agrogood_business_line_purchase,agrogood.business.line compras,model_agrogood_business_line,group_agrogood_purchase,1,0,0,0
+access_agrogood_business_line_user,agrogood.business.line lectura interna,model_agrogood_business_line,base.group_user,1,0,0,0
