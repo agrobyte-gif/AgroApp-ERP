@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_agrogood_pricing"
+              name="Precios"
+              parent="agrogood_base.menu_agrogood_root"
+              sequence="20"
+              groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+
+    <menuitem id="menu_agrogood_price_version"
+              name="Versiones de precios"
+              parent="menu_agrogood_pricing"
+              action="agrogood_price_version_action"
+              sequence="10"/>
+
+    <!-- Boton de acceso al historial desde la propia linea comercial -->
+    <record id="agrogood_business_line_view_form_inherit_pricing" model="ir.ui.view">
+        <field name="name">agrogood.business.line.form.inherit.pricing</field>
+        <field name="model">agrogood.business.line</field>
+        <field name="inherit_id" ref="agrogood_base.agrogood_business_line_view_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_price_versions" type="object"
+                        class="oe_stat_button" icon="fa-line-chart">
+                    <field name="price_version_count" widget="statinfo" string="Versiones"/>
+                </button>
+            </div>
+        </field>
+    </record>
+
+</odoo>

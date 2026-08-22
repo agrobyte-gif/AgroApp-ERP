@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="agrogood_price_version_view_list" model="ir.ui.view">
+        <field name="name">agrogood.price.version.list</field>
+        <field name="model">agrogood.price.version</field>
+        <field name="arch" type="xml">
+            <list string="Versiones de precios"
+                  decoration-muted="state == 'cancelled'"
+                  decoration-bf="state == 'draft'">
+                <field name="name"/>
+                <field name="business_line_id"/>
+                <field name="pricelist_id" optional="show"/>
+                <field name="date_start"/>
+                <field name="line_count" string="Productos"/>
+                <field name="applied_on" optional="hide"/>
+                <field name="applied_by_id" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-success="state == 'applied'"
+                       decoration-danger="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="agrogood_price_version_view_form" model="ir.ui.view">
+        <field name="name">agrogood.price.version.form</field>
+        <field name="model">agrogood.price.version</field>
+        <field name="arch" type="xml">
+            <form string="Version de precios">
+                <header>
+                    <button name="action_apply" type="object" string="Publicar"
+                            class="btn-primary" invisible="state != 'draft'"
+                            confirm="Se publicaran estos precios y se cerrara la vigencia de los anteriores. Los precios ya publicados no se modifican. ¿Continuar?"/>
+                    <button name="action_refresh_comparison" type="object"
+                            string="Recalcular comparacion" invisible="state != 'draft'"/>
+                    <button name="action_cancel" type="object" string="Cancelar"
+                            invisible="state != 'draft'"/>
+                    <button name="action_reset_to_draft" type="object"
+                            string="Volver a borrador" invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,applied"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_pricelist_items" type="object"
+                                class="oe_stat_button" icon="fa-tags"
+                                invisible="state != 'applied'">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Ver en</span>
+                                <span class="o_stat_text">la tarifa</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Semana del 24 de agosto"/></h1>
+                    </div>
+                    <group>
+                        <group name="alcance">
+                            <field name="business_line_id" readonly="state != 'draft'"/>
+                            <field name="pricelist_id" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group name="vigencia">
+                            <field name="date_start" readonly="state != 'draft'"/>
+                            <field name="applied_on" invisible="state != 'applied'"/>
+                            <field name="applied_by_id" invisible="state != 'applied'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Precios" name="prices">
+                            <field name="line_ids" readonly="state != 'draft'">
+                                <list editable="bottom"
+                                      decoration-success="trend == 'down'"
+                                      decoration-danger="trend == 'up'"
+                                      decoration-muted="trend == 'flat'">
+                                    <field name="product_tmpl_id"/>
+                                    <field name="uom_name" string="Unidad"/>
+                                    <field name="min_quantity"/>
+                                    <field name="previous_price" readonly="1"/>
+                                    <field name="price"/>
+                                    <field name="variation" widget="percentage" readonly="1"/>
+                                    <field name="trend" widget="badge" readonly="1"
+                                           decoration-danger="trend == 'up'"
+                                           decoration-success="trend == 'down'"
+                                           decoration-info="trend == 'new'"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="product_name" column_invisible="1"/>
+                                    <field name="state" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Observaciones" name="note">
+                            <field name="note" placeholder="Motivo del cambio, origen de los precios, quien los autorizo."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="agrogood_price_version_view_search" model="ir.ui.view">
+        <field name="name">agrogood.price.version.search</field>
+        <field name="model">agrogood.price.version</field>
+        <field name="arch" type="xml">
+            <search string="Versiones de precios">
+                <field name="name"/>
+                <field name="business_line_id"/>
+                <field name="pricelist_id"/>
+                <filter name="filter_draft" string="En borrador" domain="[('state','=','draft')]"/>
+                <filter name="filter_applied" string="Publicadas" domain="[('state','=','applied')]"/>
+                <separator/>
+                <filter name="filter_current" string="Vigentes o futuras"
+                        domain="[('date_start','&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="groupby_business_line" string="Linea comercial"
+                            context="{'group_by': 'business_line_id'}"/>
+                    <filter name="groupby_state" string="Estado"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="groupby_date" string="Vigente desde"
+                            context="{'group_by': 'date_start'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="agrogood_price_version_action" model="ir.actions.act_window">
+        <field name="name">Versiones de precios</field>
+        <field name="res_model">agrogood.price.version</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_draft': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Prepara la primera version de precios</p>
+            <p>Cada version agrupa los precios de una linea comercial a partir de una
+               fecha. Al publicarla, los precios anteriores dejan de regir pero se
+               conservan: los pedidos ya realizados mantienen el precio con el que
+               se cerraron.</p>
+        </field>
+    </record>
+
+</odoo>

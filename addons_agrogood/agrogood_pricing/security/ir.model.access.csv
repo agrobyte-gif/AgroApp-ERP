@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_price_version_sales,agrogood.price.version ventas,model_agrogood_price_version,agrogood_base.group_agrogood_sales,1,1,1,1
+access_price_version_admin,agrogood.price.version admin general,model_agrogood_price_version,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_price_version_purchase,agrogood.price.version compras lectura,model_agrogood_price_version,agrogood_base.group_agrogood_purchase,1,0,0,0
+access_price_version_line_sales,agrogood.price.version.line ventas,model_agrogood_price_version_line,agrogood_base.group_agrogood_sales,1,1,1,1
+access_price_version_line_admin,agrogood.price.version.line admin general,model_agrogood_price_version_line,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_price_version_line_purchase,agrogood.price.version.line compras lectura,model_agrogood_price_version_line,agrogood_base.group_agrogood_purchase,1,0,0,0
