@@ -30,10 +30,6 @@ class AgrogoodBusinessLine(models.Model):
         help="Tarifa que se propone al asignar esta linea comercial a un cliente. "
              "No se aplica de forma retroactiva a clientes ya existentes.",
     )
-    payment_term_id = fields.Many2one(
-        comodel_name='account.payment.term',
-        string="Condicion de pago por defecto",
-    )
     note = fields.Text(string="Condiciones comerciales")
 
     partner_ids = fields.One2many(

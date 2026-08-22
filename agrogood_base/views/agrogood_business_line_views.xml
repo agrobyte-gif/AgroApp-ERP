@@ -10,7 +10,6 @@
                 <field name="code"/>
                 <field name="name"/>
                 <field name="pricelist_id"/>
-                <field name="payment_term_id" optional="show"/>
                 <field name="partner_count" string="Clientes"/>
             </list>
         </field>
@@ -42,7 +41,6 @@
                         </group>
                         <group name="comercial">
                             <field name="pricelist_id"/>
-                            <field name="payment_term_id"/>
                         </group>
                     </group>
                     <notebook>
