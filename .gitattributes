@@ -1,0 +1,6 @@
+# Normalizar finales de linea: el repositorio guarda LF, el disco usa el nativo.
+# Evita diffs de archivo completo entre Windows y el servidor Linux de produccion.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
