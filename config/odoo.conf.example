@@ -1,0 +1,39 @@
+[options]
+; ---------------------------------------------------------------------------
+; Agrogood - configuracion de DESARROLLO local (Windows)
+; Produccion usa un archivo distinto: ver docs/ADR-001-arquitectura.md
+; ---------------------------------------------------------------------------
+
+; Contrasena maestra de operaciones de base de datos.
+; CAMBIAR antes del primer arranque y no versionar el valor real.
+admin_passwd = PONER_AQUI_LA_CLAVE_MAESTRA
+
+; Rutas de addons: primero los propios, luego el nucleo de Odoo.
+addons_path = C:\dev\agrogood\addons_agrogood,C:\dev\agrogood\odoo-18.0\addons
+
+; PostgreSQL 17 local
+db_host = localhost
+db_port = 5432
+db_user = odoo
+db_password = PONER_AQUI_LA_CLAVE_DEL_ROL_ODOO
+db_name = agrogood_dev
+
+; Solo la base de Agrogood es visible en el selector.
+dbfilter = ^agrogood_.*$
+list_db = True
+
+; Almacenamiento de adjuntos, fotos de entrega y PDF de DTE.
+data_dir = C:\dev\agrogood\filestore
+
+http_port = 8069
+
+; En Windows no hay workers: Odoo corre en modo hilo unico.
+workers = 0
+max_cron_threads = 2
+
+log_level = info
+logfile = C:\dev\agrogood\logs\odoo.log
+log_handler = :INFO
+
+; Recarga automatica al editar codigo. Nunca activar en produccion.
+dev_mode = reload,qweb,xml

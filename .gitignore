@@ -1,7 +1,16 @@
+# Nucleo de Odoo: se clona aparte y nunca se versiona ni se modifica.
+odoo-18.0/
+
+# Entorno y datos locales
+.venv/
+filestore/
+logs/
 __pycache__/
 *.py[cod]
-*.egg-info/
-.venv/
+
+# Configuracion con credenciales reales. Se versiona odoo.conf.example.
+config/odoo.conf
+
 .idea/
 .vscode/
 *.log
