@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- El nombre que aparece en la pestana del navegador cuando se sirve
+             una pagina publica, y el que usan varios informes. -->
+        <record id="param_titulo" model="ir.config_parameter">
+            <field name="key">web.base.title</field>
+            <field name="value">Agroapp</field>
+        </record>
+    </data>
+</odoo>

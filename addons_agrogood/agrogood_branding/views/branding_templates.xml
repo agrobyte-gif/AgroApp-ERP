@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Marca visible: todo lo que el equipo lee dice Agroapp.
+
+        NO se toca el codigo. El paquete Python sigue llamandose `odoo`, las
+        tablas siguen siendo ir_*/res_*, y los identificadores internos no
+        cambian. Renombrarlos romperia 3.799 archivos y, sobre todo, impediria
+        aplicar cualquier actualizacion futura de Odoo.
+
+        Lo que se cambia aqui es la capa que ve el usuario, que es de lo que se
+        trata. La licencia LGPL-3 de Odoo Community permite exactamente esto:
+        modificar y usar la marca propia. Lo que no permitiria es lo contrario,
+        usar la marca Odoo para un producto que no lo es.
+    -->
+
+    <!-- Titulo de la pestana y favicon en todas las paginas -->
+    <template id="layout_agroapp" inherit_id="web.layout" name="Agroapp - titulo y favicon">
+        <xpath expr="//title" position="replace">
+            <title t-esc="title or 'Agroapp'"/>
+        </xpath>
+        <xpath expr="//link[@rel='shortcut icon']" position="replace">
+            <link type="image/x-icon" rel="shortcut icon"
+                  t-att-href="x_icon or '/agrogood_branding/static/src/img/favicon.ico'"/>
+            <link rel="apple-touch-icon"
+                  href="/agrogood_branding/static/src/img/icon-192.png"/>
+        </xpath>
+    </template>
+
+    <!-- "Powered by Odoo" del pie de las paginas publicas y del login -->
+    <template id="brand_promotion_agroapp" inherit_id="web.brand_promotion_message"
+              name="Agroapp - pie de pagina">
+        <xpath expr="//t[@t-set='odoo_logo']" position="replace">
+            <t t-set="odoo_logo">
+                <span class="badge text-bg-light">Agroapp</span>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- Mensaje de sin conexion -->
+    <template id="offline_agroapp" inherit_id="web.webclient_offline"
+              name="Agroapp - sin conexion">
+        <xpath expr="//img" position="attributes">
+            <attribute name="alt">Agroapp</attribute>
+        </xpath>
+    </template>
+
+    <!-- El logo de la esquina y el de la pantalla de acceso salen del logo de
+         la empresa, no de una plantilla: asi cambiarlo desde Ajustes cambia
+         toda la aplicacion de una vez, sin tocar codigo. Se establece en
+         data/agroapp_data.xml. -->
+
+</odoo>

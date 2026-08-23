@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Cuatro paneles, uno por rol administrativo. Los de Picker y Conductor
+        no estan aqui: son la PWA, que es su pantalla completa.
+
+        Cada panel se arma con vistas del propio dato -lista, kanban, pivote,
+        grafico- en lugar de con un modelo de indicadores aparte. La razon es
+        que un numero sobre el que no se puede hacer clic obliga a abrir otra
+        pantalla para actuar, y entonces nadie lo mira dos veces. Aqui cada
+        cifra es la propia lista de trabajo: se ve y se resuelve en el sitio.
+    -->
+
+    <!-- ==================== VENTAS ==================== -->
+
+    <record id="dash_ventas_pedidos" model="ir.actions.act_window">
+        <field name="name">Pedidos de hoy</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,kanban,form,pivot,graph</field>
+        <field name="domain">[('state','in',('draft','sent','sale'))]</field>
+        <field name="context">{'search_default_agrogood_today': 1,
+                               'search_default_groupby_agrogood_state': 1}</field>
+    </record>
+
+    <record id="dash_ventas_por_linea" model="ir.actions.act_window">
+        <field name="name">Ventas por linea comercial</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_filter_order_date': 1,
+                               'group_by': ['agrogood_business_line_id']}</field>
+    </record>
+
+    <record id="dash_ventas_productos" model="ir.actions.act_window">
+        <field name="name">Productos mas vendidos</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_filter_order_date': 1,
+                               'group_by': ['product_id']}</field>
+    </record>
+
+    <!-- ==================== LOGISTICA ==================== -->
+
+    <record id="dash_log_preparaciones" model="ir.actions.act_window">
+        <field name="name">Preparaciones de hoy</field>
+        <field name="res_model">agrogood.picking.session</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="context">{'search_default_hoy': 1,
+                               'search_default_g_picker': 1}</field>
+    </record>
+
+    <record id="dash_log_sin_picker" model="ir.actions.act_window">
+        <field name="name">Pendientes de asignar</field>
+        <field name="res_model">stock.picking</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('picking_type_code','=','outgoing'),
+                              ('state','in',('assigned','confirmed')),
+                              ('agrogood_picker_id','=',False)]</field>
+    </record>
+
+    <record id="dash_log_atrasados" model="ir.actions.act_window">
+        <field name="name">Pedidos atrasados</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','sale'),
+                              ('agrogood_state','not in',
+                               ('delivered','invoiced','closed','cancelled'))]</field>
+        <field name="context">{'search_default_groupby_agrogood_state': 1}</field>
+    </record>
+
+    <record id="dash_log_rutas" model="ir.actions.act_window">
+        <field name="name">Rutas de hoy</field>
+        <field name="res_model">agrogood.route</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_hoy': 1, 'search_default_g_driver': 1}</field>
+    </record>
+
+    <record id="dash_log_entregas" model="ir.actions.act_window">
+        <field name="name">Entregas pendientes</field>
+        <field name="res_model">agrogood.route.stop</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','in',('pending','on_the_way','arrived'))]</field>
+    </record>
+
+    <!-- ==================== COMPRAS ==================== -->
+
+    <record id="dash_compras_pizarra" model="ir.actions.act_window">
+        <field name="name">Mi pizarra</field>
+        <field name="res_model">agrogood.purchase.request</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="context">{'search_default_abiertas': 1}</field>
+    </record>
+
+    <record id="dash_compras_urgentes" model="ir.actions.act_window">
+        <field name="name">Urgentes y atrasadas</field>
+        <field name="res_model">agrogood.purchase.request</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">['|', ('priority','=','2'), ('is_late','=',True)]</field>
+    </record>
+
+    <record id="dash_compras_por_cliente" model="ir.actions.act_window">
+        <field name="name">Compras por cliente que las pide</field>
+        <field name="res_model">agrogood.purchase.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_g_partner': 1}</field>
+    </record>
+
+    <record id="dash_compras_no_encontrado" model="ir.actions.act_window">
+        <field name="name">No encontrados</field>
+        <field name="res_model">agrogood.purchase.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','not_found')]</field>
+        <field name="context">{'search_default_g_product': 1}</field>
+    </record>
+
+    <!-- ==================== DIRECCION ==================== -->
+
+    <record id="dash_dir_ventas" model="ir.actions.act_window">
+        <field name="name">Ventas del mes</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="context">{'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <record id="dash_dir_clientes" model="ir.actions.act_window">
+        <field name="name">Situacion de la cartera</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('agrogood_business_line_id','!=',False),
+                              ('parent_id','=',False)]</field>
+        <field name="context">{'search_default_ag_g_status': 1}</field>
+    </record>
+
+    <record id="dash_dir_mermas" model="ir.actions.act_window">
+        <field name="name">Mermas por motivo</field>
+        <field name="res_model">stock.scrap</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','done')]</field>
+        <field name="context">{'search_default_ag_g_reason': 1}</field>
+    </record>
+
+    <record id="dash_dir_facturacion" model="ir.actions.act_window">
+        <field name="name">Facturacion</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('move_type','=','out_invoice')]</field>
+    </record>
+
+    <record id="dash_dir_no_facturables" model="ir.actions.act_window">
+        <field name="name">Clientes no facturables</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('agrogood_billing_blocked','=',True)]</field>
+    </record>
+
+    <!-- ==================== MENUS ==================== -->
+
+    <menuitem id="menu_dash_root" name="Paneles"
+              parent="agrogood_base.menu_agrogood_root" sequence="1"/>
+
+    <!-- Ventas -->
+    <menuitem id="menu_dash_ventas" name="Ventas" parent="menu_dash_root" sequence="10"
+              groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+    <menuitem id="m_dv_1" name="Pedidos de hoy" parent="menu_dash_ventas"
+              action="dash_ventas_pedidos" sequence="10"/>
+    <menuitem id="m_dv_2" name="A quien llamar hoy" parent="menu_dash_ventas"
+              action="agrogood_crm_reactivation.followup_action" sequence="20"/>
+    <menuitem id="m_dv_3" name="Ventas por linea" parent="menu_dash_ventas"
+              action="dash_ventas_por_linea" sequence="30"/>
+    <menuitem id="m_dv_4" name="Productos mas vendidos" parent="menu_dash_ventas"
+              action="dash_ventas_productos" sequence="40"/>
+    <menuitem id="m_dv_5" name="Clientes por situacion" parent="menu_dash_ventas"
+              action="agrogood_crm_reactivation.partner_action_crm" sequence="50"/>
+
+    <!-- Logistica -->
+    <menuitem id="menu_dash_log" name="Logistica" parent="menu_dash_root" sequence="20"
+              groups="agrogood_base.group_agrogood_logistics_manager,agrogood_base.group_agrogood_general_admin"/>
+    <menuitem id="m_dl_1" name="Pendientes de asignar" parent="menu_dash_log"
+              action="dash_log_sin_picker" sequence="10"/>
+    <menuitem id="m_dl_2" name="Preparaciones de hoy" parent="menu_dash_log"
+              action="dash_log_preparaciones" sequence="20"/>
+    <menuitem id="m_dl_3" name="Pedidos atrasados" parent="menu_dash_log"
+              action="dash_log_atrasados" sequence="30"/>
+    <menuitem id="m_dl_4" name="Rutas de hoy" parent="menu_dash_log"
+              action="dash_log_rutas" sequence="40"/>
+    <menuitem id="m_dl_5" name="Entregas pendientes" parent="menu_dash_log"
+              action="dash_log_entregas" sequence="50"/>
+    <menuitem id="m_dl_6" name="Productividad por Picker" parent="menu_dash_log"
+              action="agrogood_picking_ops.session_action_productivity" sequence="60"/>
+
+    <!-- Compras -->
+    <menuitem id="menu_dash_com" name="Compras" parent="menu_dash_root" sequence="30"
+              groups="agrogood_base.group_agrogood_purchase,agrogood_base.group_agrogood_general_admin"/>
+    <menuitem id="m_dc_1" name="Mi pizarra" parent="menu_dash_com"
+              action="dash_compras_pizarra" sequence="10"/>
+    <menuitem id="m_dc_2" name="Urgentes y atrasadas" parent="menu_dash_com"
+              action="dash_compras_urgentes" sequence="20"/>
+    <menuitem id="m_dc_3" name="Por cliente" parent="menu_dash_com"
+              action="dash_compras_por_cliente" sequence="30"/>
+    <menuitem id="m_dc_4" name="No encontrados" parent="menu_dash_com"
+              action="dash_compras_no_encontrado" sequence="40"/>
+
+    <!-- Direccion -->
+    <menuitem id="menu_dash_dir" name="Direccion" parent="menu_dash_root" sequence="40"
+              groups="agrogood_base.group_agrogood_general_admin"/>
+    <menuitem id="m_dd_1" name="Ventas del mes" parent="menu_dash_dir"
+              action="dash_dir_ventas" sequence="10"/>
+    <menuitem id="m_dd_2" name="Situacion de la cartera" parent="menu_dash_dir"
+              action="dash_dir_clientes" sequence="20"/>
+    <menuitem id="m_dd_3" name="Mermas por motivo" parent="menu_dash_dir"
+              action="dash_dir_mermas" sequence="30"/>
+    <menuitem id="m_dd_4" name="Facturacion" parent="menu_dash_dir"
+              action="dash_dir_facturacion" sequence="40"/>
+    <menuitem id="m_dd_5" name="Clientes no facturables" parent="menu_dash_dir"
+              action="dash_dir_no_facturables" sequence="50"/>
+
+</odoo>

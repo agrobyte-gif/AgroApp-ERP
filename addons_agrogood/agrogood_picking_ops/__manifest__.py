@@ -33,6 +33,7 @@ entrega pendiente sino lo que peso la caja.
         'security/ir.model.access.csv',
         'views/agrogood_picking_session_views.xml',
         'views/stock_picking_views.xml',
+        'views/stock_scrap_views.xml',
         'wizard/agrogood_assign_picker_views.xml',
         'views/menus.xml',
     ],

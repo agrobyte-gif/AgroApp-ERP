@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Una sola tarea para todos los avisos: cinco tareas separadas serian
+             cinco cosas que pueden fallar por separado y que hay que revisar
+             por separado. Se ejecuta a primera hora, antes de que empiece la
+             jornada, para que el aviso llegue con margen para actuar. -->
+        <record id="cron_avisos" model="ir.cron">
+            <field name="name">Agrogood: avisos de la operacion</field>
+            <field name="model_id" ref="model_agrogood_alerts"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_todos()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

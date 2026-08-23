@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stock_scrap_view_form_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.scrap.form.inherit.agrogood</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_form_view"/>
+        <field name="arch" type="xml">
+            <field name="scrap_qty" position="after">
+                <field name="agrogood_reason"/>
+                <field name="agrogood_reason_note"
+                       placeholder="Que paso exactamente"/>
+                <field name="agrogood_claimable" invisible="1"/>
+                <field name="agrogood_partner_id"
+                       invisible="not agrogood_claimable"
+                       required="agrogood_claimable"/>
+                <field name="agrogood_cost" readonly="1"/>
+                <field name="agrogood_currency_id" invisible="1"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="stock_scrap_view_list_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.scrap.list.inherit.agrogood</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_tree_view"/>
+        <field name="arch" type="xml">
+            <field name="scrap_qty" position="after">
+                <field name="agrogood_reason" widget="badge"
+                       decoration-danger="agrogood_reason in ('expired','quality')"
+                       decoration-warning="agrogood_reason in ('supplier','damaged_transport')"/>
+                <field name="agrogood_cost" sum="Costo perdido" optional="show"/>
+                <field name="agrogood_partner_id" optional="hide"/>
+                <field name="agrogood_currency_id" column_invisible="1"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="stock_scrap_view_search_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.scrap.search.inherit.agrogood</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter name="ag_reclamables" string="Reclamables"
+                        domain="[('agrogood_claimable','=',True)]"/>
+                <filter name="ag_vencidos" string="Por vencimiento"
+                        domain="[('agrogood_reason','=','expired')]"/>
+                <group expand="0" string="Agrupar por motivo">
+                    <filter name="ag_g_reason" string="Motivo de la merma"
+                            context="{'group_by':'agrogood_reason'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="scrap_action_analysis" model="ir.actions.act_window">
+        <field name="name">Mermas por motivo</field>
+        <field name="res_model">stock.scrap</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state','=','done')]</field>
+        <field name="context">{'search_default_ag_g_reason': 1}</field>
+    </record>
+
+    <menuitem id="menu_agrogood_scrap" name="Mermas por motivo"
+              parent="menu_agrogood_operations" action="scrap_action_analysis"
+              sequence="50"/>
+</odoo>
