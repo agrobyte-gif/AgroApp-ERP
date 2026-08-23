@@ -22,12 +22,34 @@ const S = {
     enviados: 0,
 };
 
+/* Un conductor no puede hacer nada con "Failed to fetch". El mensaje tiene
+   que decirle QUE comprobar, porque casi siempre lo puede resolver el. */
+function explicar(e, servidor) {
+    const m = ((e && e.message) || "").toLowerCase();
+    if (m.includes("failed to fetch") || m.includes("network") ||
+        m.includes("timeout") || m.includes("unable to resolve")) {
+        return [
+            "No se pudo conectar con " + servidor,
+            "",
+            "Comprueba:",
+            "1. Que el telefono este en la misma red Wi-Fi que el servidor.",
+            "2. Que la direccion este bien escrita, con http:// y el puerto.",
+            "3. Que el servidor este encendido.",
+        ].join(String.fromCharCode(10));
+    }
+    if (m.includes("incorrect") || m.includes("credential")) {
+        return "Usuario o contrasena incorrectos.";
+    }
+    return (e && e.message) ? e.message : "No se pudo conectar.";
+}
+
 const $ = (id) => document.getElementById(id);
 const mostrar = (id) => {
     document.querySelectorAll(".pantalla").forEach((p) => p.classList.remove("activa"));
     $(id).classList.add("activa");
 };
-const error = (t) => { const e = $("err"); e.textContent = t; e.style.display = t ? "block" : "none"; };
+const error = (t) => { const e = $("err"); e.textContent = t;
+    e.style.whiteSpace = "pre-line"; e.style.display = t ? "block" : "none"; };
 
 async function guardar(k, v) { await Preferences.set({ key: k, value: String(v) }); }
 async function leer(k) { return (await Preferences.get({ key: k })).value; }
@@ -50,18 +72,71 @@ async function rpc(ruta, params) {
 
 async function entrar(servidor, login, clave) {
     S.servidor = servidor.replace(/\/+$/, "");
+
+    // La base de datos NO se supone ni se pide al conductor: se le pregunta al
+    // servidor. Odoo exige el nombre de la base al autenticar, y enviarlo
+    // vacio provoca un error interno que no dice nada util.
+    const bd = await averiguarBase();
+
     const r = await fetch(S.servidor + "/web/session/authenticate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
             jsonrpc: "2.0", method: "call",
-            params: { db: null, login: login, password: clave },
+            params: { db: bd, login: login, password: clave },
         }),
     });
     const d = await r.json();
-    if (d.error) throw new Error("Usuario o contrasena incorrectos");
+    if (d.error) {
+        // Se distingue el acceso denegado de cualquier otro fallo: decirle a
+        // alguien que su clave esta mal cuando el problema es otro le hace
+        // perder el tiempo probando claves.
+        const nombre = (d.error.data && d.error.data.name) || "";
+        if (nombre.includes("AccessDenied")) {
+            throw new Error("Usuario o contrasena incorrectos.");
+        }
+        throw new Error((d.error.data && d.error.data.message) || d.error.message);
+    }
+    await guardar("base", bd);
     return d.result;
+}
+
+async function averiguarBase() {
+    // 1. Se pregunta la lista de bases. Es lo normal en una instalacion.
+    try {
+        const r = await fetch(S.servidor + "/web/database/list", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: {} }),
+        });
+        const d = await r.json();
+        const bases = (d.result || []).filter(Boolean);
+        if (bases.length === 1) return bases[0];
+        if (bases.length > 1) {
+            const guardada = await leer("base");
+            if (guardada && bases.includes(guardada)) return guardada;
+            return bases[0];
+        }
+    } catch (e) { /* la lista puede estar desactivada por seguridad */ }
+
+    // 2. Si esta desactivada, se usa la que ya funciono antes.
+    const guardada = await leer("base");
+    if (guardada) return guardada;
+
+    // 3. Ultimo recurso: el nombre que Odoo deduce del dominio.
+    try {
+        const r = await fetch(S.servidor + "/web/session/get_session_info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: {} }),
+        });
+        const d = await r.json();
+        if (d.result && d.result.db) return d.result.db;
+    } catch (e) { /* nada */ }
+
+    throw new Error("No se pudo determinar la base de datos del servidor. " +
+                    "Pideselo al Administrador Tecnico.");
 }
 
 /* -------------------------------------------------------------------
@@ -179,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             mostrar(await leer("acepta_ubicacion") === "1" ? "p-estado" : "p-aviso");
             if (await leer("acepta_ubicacion") === "1") iniciarCiclo();
         } catch (e) {
-            error(e.message || "No se pudo conectar. Revisa la direccion del servidor.");
+            error(explicar(e, s));
         } finally {
             $("btn-entrar").disabled = false;
             $("btn-entrar").textContent = "Entrar";
