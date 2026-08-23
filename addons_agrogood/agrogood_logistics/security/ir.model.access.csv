@@ -1,0 +1,12 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_route_logistics,ruta logistica,model_agrogood_route,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_route_warehouse,ruta bodega lectura,model_agrogood_route,agrogood_base.group_agrogood_warehouse,1,0,0,0
+access_route_driver,ruta conductor,model_agrogood_route,agrogood_base.group_agrogood_driver,1,1,0,0
+access_route_sales,ruta ventas lectura,model_agrogood_route,agrogood_base.group_agrogood_sales,1,0,0,0
+access_route_admin,ruta admin general,model_agrogood_route,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_stop_logistics,parada logistica,model_agrogood_route_stop,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_stop_warehouse,parada bodega lectura,model_agrogood_route_stop,agrogood_base.group_agrogood_warehouse,1,0,0,0
+access_stop_driver,parada conductor,model_agrogood_route_stop,agrogood_base.group_agrogood_driver,1,1,0,0
+access_stop_sales,parada ventas lectura,model_agrogood_route_stop,agrogood_base.group_agrogood_sales,1,0,0,0
+access_stop_admin,parada admin general,model_agrogood_route_stop,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_addpick_logistics,asistente anadir albaranes,model_agrogood_route_add_pickings,agrogood_base.group_agrogood_logistics_manager,1,1,1,1

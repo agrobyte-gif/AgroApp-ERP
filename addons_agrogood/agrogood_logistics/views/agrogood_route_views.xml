@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="route_view_list" model="ir.ui.view">
+        <field name="name">agrogood.route.list</field>
+        <field name="model">agrogood.route</field>
+        <field name="arch" type="xml">
+            <list string="Rutas" decoration-danger="is_overloaded"
+                  decoration-warning="state == 'in_progress'">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="driver_id" widget="many2one_avatar_user"/>
+                <field name="vehicle_id" optional="show"/>
+                <field name="stop_count" string="Paradas"/>
+                <field name="delivered_count" optional="show"/>
+                <field name="failed_count" optional="show"/>
+                <field name="estimated_weight" optional="show" sum="Peso"/>
+                <field name="capacity_usage" optional="hide" widget="progressbar"/>
+                <field name="is_overloaded" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'planned'"
+                       decoration-warning="state == 'in_progress'"
+                       decoration-success="state == 'done'"
+                       decoration-danger="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="route_view_form" model="ir.ui.view">
+        <field name="name">agrogood.route.form</field>
+        <field name="model">agrogood.route</field>
+        <field name="arch" type="xml">
+            <form string="Ruta de reparto">
+                <header>
+                    <button name="action_add_pickings" type="object"
+                            string="Anadir albaranes" class="btn-secondary"
+                            invisible="state not in ('draft', 'planned')"/>
+                    <button name="action_sequence_by_window" type="object"
+                            string="Ordenar por horario"
+                            invisible="state not in ('draft', 'planned')"/>
+                    <button name="action_optimize_sequence" type="object"
+                            string="Optimizar por distancia"
+                            invisible="state not in ('draft', 'planned')"
+                            help="Requiere un servicio de mapas configurado."/>
+                    <button name="action_plan" type="object" string="Planificar"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_start" type="object" string="Iniciar ruta"
+                            class="btn-primary" invisible="state != 'planned'"/>
+                    <button name="action_finish" type="object" string="Terminar ruta"
+                            class="btn-primary" invisible="state != 'in_progress'"/>
+                    <button name="action_cancel" type="object" string="Cancelar"
+                            invisible="state in ('done', 'cancelled')"/>
+                    <button name="action_draft" type="object" string="Volver a borrador"
+                            invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,planned,in_progress,done"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Sobrecargada" bg_color="text-bg-danger"
+                            invisible="not is_overloaded"/>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Reparto">
+                            <field name="date"/>
+                            <field name="driver_id" widget="many2one_avatar_user"/>
+                            <field name="vehicle_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Carga">
+                            <field name="estimated_weight"/>
+                            <field name="vehicle_capacity"/>
+                            <field name="capacity_usage" widget="progressbar"
+                                   invisible="not vehicle_capacity"/>
+                            <field name="is_overloaded" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Tiempos">
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="duration_hours"/>
+                        </group>
+                        <group string="Avance">
+                            <field name="stop_count"/>
+                            <field name="delivered_count"/>
+                            <field name="failed_count"/>
+                            <field name="pending_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Paradas" name="stops">
+                            <field name="stop_ids">
+                                <list editable="bottom" decoration-success="state == 'delivered'"
+                                      decoration-danger="state in ('not_delivered', 'rescheduled')"
+                                      decoration-warning="state == 'arrived'">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="picking_id"/>
+                                    <field name="partner_id"/>
+                                    <field name="street" optional="show"/>
+                                    <field name="city" optional="show"/>
+                                    <field name="phone" optional="hide"/>
+                                    <field name="scheduled_time" optional="show"/>
+                                    <field name="estimated_weight" optional="hide" sum="Peso"/>
+                                    <field name="arrival_time" optional="hide"/>
+                                    <field name="delivery_time" optional="hide"/>
+                                    <field name="failure_reason" optional="hide"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'delivered'"
+                                           decoration-warning="state in ('on_the_way', 'arrived')"
+                                           decoration-danger="state in ('not_delivered', 'rescheduled')"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Instrucciones" name="note">
+                            <field name="note" placeholder="Lo que el conductor debe saber antes de salir"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="route_stop_view_form" model="ir.ui.view">
+        <field name="name">agrogood.route.stop.form</field>
+        <field name="model">agrogood.route.stop</field>
+        <field name="arch" type="xml">
+            <form string="Parada">
+                <header>
+                    <button name="action_on_the_way" type="object" string="En camino"
+                            invisible="state != 'pending'"/>
+                    <button name="action_arrived" type="object" string="Llegue"
+                            class="btn-primary" invisible="state != 'on_the_way'"/>
+                    <button name="action_delivered" type="object" string="Entregado"
+                            class="btn-primary" invisible="state not in ('arrived', 'on_the_way')"/>
+                    <button name="action_not_delivered" type="object" string="No entregado"
+                            invisible="state in ('delivered', 'not_delivered')"/>
+                    <button name="action_rescheduled" type="object" string="Reprogramar"
+                            invisible="state in ('delivered', 'rescheduled')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,on_the_way,arrived,delivered"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Entrega">
+                            <field name="route_id"/>
+                            <field name="picking_id"/>
+                            <field name="partner_id"/>
+                            <field name="street"/>
+                            <field name="city"/>
+                            <field name="phone" widget="phone"/>
+                            <field name="scheduled_time"/>
+                            <field name="delivery_note"/>
+                        </group>
+                        <group string="Resultado">
+                            <field name="arrival_time"/>
+                            <field name="delivery_time"/>
+                            <field name="received_by"/>
+                            <field name="failure_reason"
+                                   invisible="state not in ('not_delivered', 'rescheduled')"
+                                   required="state in ('not_delivered', 'rescheduled')"/>
+                            <field name="estimated_weight"/>
+                        </group>
+                    </group>
+                    <group string="Productos">
+                        <field name="line_summary" nolabel="1" colspan="2" readonly="1"/>
+                    </group>
+                    <group>
+                        <group string="Evidencia">
+                            <field name="signature" widget="signature"/>
+                            <field name="photo" widget="image" options="{'size': [200, 200]}"/>
+                        </group>
+                        <group string="Ubicacion registrada">
+                            <field name="gps_latitude"/>
+                            <field name="gps_longitude"/>
+                        </group>
+                    </group>
+                    <group string="Observaciones">
+                        <field name="stop_note" nolabel="1" colspan="2"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="route_view_search" model="ir.ui.view">
+        <field name="name">agrogood.route.search</field>
+        <field name="model">agrogood.route</field>
+        <field name="arch" type="xml">
+            <search string="Rutas">
+                <field name="name"/>
+                <field name="driver_id"/>
+                <field name="vehicle_id"/>
+                <filter name="hoy" string="De hoy"
+                        domain="[('date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="abiertas" string="Abiertas"
+                        domain="[('state','in',('draft','planned','in_progress'))]"/>
+                <filter name="en_ruta" string="En ruta" domain="[('state','=','in_progress')]"/>
+                <filter name="mias" string="Mis rutas" domain="[('driver_id','=',uid)]"/>
+                <separator/>
+                <filter name="con_fallos" string="Con entregas fallidas"
+                        domain="[('failed_count','&gt;',0)]"/>
+                <filter name="sobrecargadas" string="Sobrecargadas"
+                        domain="[('is_overloaded','=',True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_driver" string="Conductor" context="{'group_by':'driver_id'}"/>
+                    <filter name="g_date" string="Fecha" context="{'group_by':'date'}"/>
+                    <filter name="g_state" string="Estado" context="{'group_by':'state'}"/>
+                    <filter name="g_vehicle" string="Vehiculo" context="{'group_by':'vehicle_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="route_action" model="ir.actions.act_window">
+        <field name="name">Rutas de reparto</field>
+        <field name="res_model">agrogood.route</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_abiertas': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Crea la primera ruta</p>
+            <p>Agrupa los albaranes preparados, asigna conductor y vehiculo, y
+               ordena las paradas. El conductor las vera en ese orden.</p>
+        </field>
+    </record>
+
+    <record id="route_stop_action" model="ir.actions.act_window">
+        <field name="name">Entregas</field>
+        <field name="res_model">agrogood.route.stop</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pendientes': 1}</field>
+    </record>
+
+</odoo>

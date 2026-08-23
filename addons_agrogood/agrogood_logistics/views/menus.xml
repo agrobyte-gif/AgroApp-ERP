@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_agrogood_routes" name="Rutas de reparto"
+              parent="agrogood_picking_ops.menu_agrogood_operations"
+              action="route_action" sequence="30"/>
+    <menuitem id="menu_agrogood_stops" name="Entregas"
+              parent="agrogood_picking_ops.menu_agrogood_operations"
+              action="route_stop_action" sequence="40"/>
+</odoo>

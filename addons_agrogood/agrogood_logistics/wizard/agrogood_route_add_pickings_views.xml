@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="route_add_pickings_view_form" model="ir.ui.view">
+        <field name="name">agrogood.route.add.pickings.form</field>
+        <field name="model">agrogood.route.add.pickings</field>
+        <field name="arch" type="xml">
+            <form string="Anadir albaranes a la ruta">
+                <group>
+                    <field name="route_id" readonly="1"/>
+                    <field name="only_prepared"/>
+                </group>
+                <field name="picking_ids" widget="many2many">
+                    <list>
+                        <field name="name"/>
+                        <field name="partner_id"/>
+                        <field name="scheduled_date"/>
+                        <field name="agrogood_session_state"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_add" type="object" string="Anadir"
+                            class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"
+                            data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
