@@ -184,6 +184,12 @@ class AgrogoodPickingSession(models.Model):
                     lineas="\n".join(
                         f"  - {m.product_id.display_name}" for m in sin_revisar),
                 ))
+            # El control de peso se hace AQUI, no solo al validar el albaran.
+            # Detectar un cero de mas cuando Logistica revisa, una hora despues
+            # y en la oficina, llega tarde: el Picker ya no tiene la caja
+            # delante ni la balanza a mano. El error hay que devolverselo en el
+            # momento en que lo comete.
+            s.picking_id.move_ids._agrogood_check_weight_tolerance()
             s.write({'state': 'done', 'date_end': fields.Datetime.now()})
         return True
 

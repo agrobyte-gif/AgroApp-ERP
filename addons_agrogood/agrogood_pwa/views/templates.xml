@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Envoltura comun. Deliberadamente NO carga los assets del backend:
+         la pantalla debe abrirse en un segundo con datos moviles. -->
+    <template id="layout" name="Agrogood movil">&lt;!DOCTYPE html&gt;
+        <html t-att-lang="lang and lang.replace('_', '-')">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport"
+                      content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+                <meta name="theme-color" content="#33553C"/>
+                <title><t t-esc="titulo or 'Agrogood'"/></title>
+                <link rel="manifest" href="/agrogood_pwa/static/manifest.webmanifest"/>
+                <link rel="stylesheet" href="/agrogood_pwa/static/src/css/pwa.css"/>
+                <script defer="defer" src="/agrogood_pwa/static/src/js/pwa.js"/>
+            </head>
+            <body>
+                <header class="ag-top">
+                    <a t-if="volver" t-att-href="volver" class="ag-back">&#8592;</a>
+                    <span class="ag-title"><t t-esc="titulo or 'Agrogood'"/></span>
+                    <span class="ag-user"><t t-esc="env.user.name"/></span>
+                </header>
+                <main class="ag-main">
+                    <t t-out="0"/>
+                </main>
+                <div id="ag-toast" class="ag-toast"></div>
+            </body>
+        </html>
+    </template>
+
+    <template id="sin_rol" name="Sin rol asignado">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Agrogood</t>
+            <div class="ag-empty">
+                <p>Tu usuario no tiene rol de Picker ni de Conductor.</p>
+                <p class="ag-muted">Pide al Administrador Tecnico que te lo asigne.</p>
+                <a href="/odoo" class="ag-btn ag-btn-ghost">Ir a Odoo</a>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================= PICKER ================= -->
+
+    <template id="picker_home" name="Picker - mis pedidos">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Mis pedidos</t>
+
+            <t t-if="en_curso">
+                <h2 class="ag-h2">En preparacion</h2>
+                <t t-foreach="en_curso" t-as="s">
+                    <a t-att-href="'/agrogood/picker/%s' % s.id" class="ag-card ag-card-active">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="s.picking_id.name"/></span>
+                            <span class="ag-card-sub"><t t-esc="s.partner_id.name"/></span>
+                        </div>
+                        <span class="ag-chip ag-chip-warn"><t t-esc="s.line_count"/> lineas</span>
+                    </a>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Pendientes</h2>
+            <t t-if="not pendientes">
+                <p class="ag-muted ag-pad">Nada asignado por ahora.</p>
+            </t>
+            <t t-foreach="pendientes" t-as="s">
+                <a t-att-href="'/agrogood/picker/%s' % s.id" class="ag-card">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="s.picking_id.name"/></span>
+                        <span class="ag-card-sub"><t t-esc="s.partner_id.name"/></span>
+                    </div>
+                    <span class="ag-chip"><t t-esc="s.line_count"/> lineas</span>
+                </a>
+            </t>
+
+            <t t-if="terminadas">
+                <h2 class="ag-h2">Terminadas hoy (<t t-esc="len(terminadas)"/>)</h2>
+                <t t-foreach="terminadas" t-as="s">
+                    <div class="ag-card ag-card-done">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="s.picking_id.name"/></span>
+                            <span class="ag-card-sub"><t t-esc="s.partner_id.name"/></span>
+                        </div>
+                        <span class="ag-chip ag-chip-ok">
+                            <t t-esc="round(s.duration_minutes)"/> min
+                        </span>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="picker_sesion" name="Picker - preparar pedido">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo" t-value="sesion.picking_id.name"/>
+            <t t-set="volver">/agrogood/picker</t>
+
+            <div class="ag-head-block">
+                <div class="ag-client"><t t-esc="sesion.partner_id.name"/></div>
+                <div class="ag-muted">
+                    <t t-esc="len(lineas)"/> productos
+                    <t t-if="sesion.sale_order_id.agrogood_delivery_slot">
+                        &#183; <t t-esc="dict(sesion.sale_order_id._fields['agrogood_delivery_slot'].selection).get(sesion.sale_order_id.agrogood_delivery_slot)"/>
+                    </t>
+                </div>
+            </div>
+
+            <t t-if="sesion.state == 'assigned'">
+                <button class="ag-btn ag-btn-primary ag-btn-xl"
+                        t-att-data-session="sesion.id" data-action="start">
+                    Empezar preparacion
+                </button>
+            </t>
+
+            <t t-if="sesion.state in ('in_progress', 'done')">
+                <div class="ag-lines" t-att-data-session="sesion.id">
+                    <t t-foreach="lineas" t-as="m">
+                        <div class="ag-line" t-att-data-move="m.id"
+                             t-att-data-variable="'1' if m.product_id.agrogood_is_variable_weight else '0'"
+                             t-att-data-tolerance="m.product_id.agrogood_weight_tolerance"
+                             t-att-data-ordered="m.product_uom_qty">
+                            <div class="ag-line-head">
+                                <span class="ag-line-name"><t t-esc="m.product_id.name"/></span>
+                                <span class="ag-line-status"
+                                      t-att-data-status="m.agrogood_line_status or ''">
+                                    <t t-esc="dict(m._fields['agrogood_line_status'].selection).get(m.agrogood_line_status, '')"/>
+                                </span>
+                            </div>
+                            <div class="ag-line-qty">
+                                <span class="ag-muted">Pedido:</span>
+                                <strong><t t-esc="'%g' % m.product_uom_qty"/> <t t-esc="m.product_uom.name"/></strong>
+                                <t t-if="m.product_id.agrogood_format_id">
+                                    <span class="ag-chip ag-chip-soft">
+                                        <t t-esc="m.product_id.agrogood_format_id.name"/>
+                                        <t t-if="m.product_id.agrogood_reference_weight">
+                                            ~<t t-esc="'%g' % m.product_id.agrogood_reference_weight"/> kg
+                                        </t>
+                                    </span>
+                                </t>
+                            </div>
+                            <t t-if="sesion.state == 'in_progress'">
+                                <div class="ag-qty-row">
+                                    <button class="ag-step" data-step="-1">&#8722;</button>
+                                    <input type="number" class="ag-qty" step="0.01" min="0"
+                                           t-att-value="'%g' % (m.quantity or m.product_uom_qty)"/>
+                                    <span class="ag-uom"><t t-esc="m.product_uom.name"/></span>
+                                    <button class="ag-step" data-step="1">+</button>
+                                </div>
+                                <div class="ag-warn" hidden="hidden"></div>
+                                <div class="ag-actions">
+                                    <button class="ag-btn ag-btn-ok" data-status="confirmed">Confirmado</button>
+                                    <button class="ag-btn ag-btn-warn" data-status="missing">Faltante</button>
+                                    <button class="ag-btn ag-btn-warn" data-status="substituted">Sustituido</button>
+                                    <button class="ag-btn ag-btn-bad" data-status="not_found">No encontrado</button>
+                                    <button class="ag-btn ag-btn-bad" data-status="cancelled">Cancelado</button>
+                                </div>
+                                <input type="text" class="ag-note" placeholder="Incidencia (opcional)"
+                                       t-att-value="m.agrogood_incident_note or ''"/>
+                            </t>
+                        </div>
+                    </t>
+                </div>
+
+                <t t-if="sesion.state == 'in_progress'">
+                    <button class="ag-btn ag-btn-primary ag-btn-xl"
+                            t-att-data-session="sesion.id" data-action="finish">
+                        Terminar preparacion
+                    </button>
+                </t>
+                <t t-if="sesion.state == 'done'">
+                    <div class="ag-done-banner">
+                        Preparacion terminada en <t t-esc="round(sesion.duration_minutes)"/> min
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- ================= CONDUCTOR ================= -->
+
+    <template id="driver_home" name="Conductor - mis rutas">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Mi ruta</t>
+            <t t-if="not rutas">
+                <p class="ag-muted ag-pad">No tienes rutas asignadas.</p>
+            </t>
+            <t t-foreach="rutas" t-as="r">
+                <a t-att-href="'/agrogood/driver/route/%s' % r.id"
+                   t-attf-class="ag-card #{'ag-card-active' if r.state == 'in_progress' else ''}">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="r.name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="r.stop_count"/> entregas &#183; <t t-esc="r.date"/>
+                        </span>
+                    </div>
+                    <span class="ag-chip"><t t-esc="r.delivered_count"/>/<t t-esc="r.stop_count"/></span>
+                </a>
+            </t>
+        </t>
+    </template>
+
+    <template id="driver_ruta" name="Conductor - paradas">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo" t-value="ruta.name"/>
+            <t t-set="volver">/agrogood/driver</t>
+
+            <div class="ag-head-block">
+                <div class="ag-client"><t t-esc="ruta.delivered_count"/> de <t t-esc="ruta.stop_count"/> entregadas</div>
+                <div class="ag-muted"><t t-esc="ruta.vehicle_id.name or ''"/></div>
+            </div>
+
+            <t t-if="ruta.state == 'planned'">
+                <button class="ag-btn ag-btn-primary ag-btn-xl"
+                        t-att-data-route="ruta.id" data-action="route_start">
+                    Iniciar ruta
+                </button>
+            </t>
+
+            <t t-foreach="ruta.stop_ids" t-as="s">
+                <a t-att-href="'/agrogood/driver/stop/%s' % s.id"
+                   t-attf-class="ag-card ag-stop-#{s.state}">
+                    <span class="ag-seq"><t t-esc="s_index + 1"/></span>
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="s.partner_id.name"/></span>
+                        <span class="ag-card-sub"><t t-esc="s.street or ''"/>, <t t-esc="s.city or ''"/></span>
+                        <span t-if="s.scheduled_time" class="ag-card-sub">
+                            Horario: <t t-esc="s.scheduled_time"/>
+                        </span>
+                    </div>
+                    <span t-attf-class="ag-chip ag-chip-#{s.state}">
+                        <t t-esc="dict(s._fields['state'].selection).get(s.state)"/>
+                    </span>
+                </a>
+            </t>
+
+            <t t-if="ruta.state == 'in_progress' and not ruta.pending_count">
+                <button class="ag-btn ag-btn-primary ag-btn-xl"
+                        t-att-data-route="ruta.id" data-action="route_finish">
+                    Terminar ruta
+                </button>
+            </t>
+        </t>
+    </template>
+
+    <template id="driver_parada" name="Conductor - entrega">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo" t-value="parada.partner_id.name"/>
+            <t t-set="volver" t-value="'/agrogood/driver/route/%s' % parada.route_id.id"/>
+
+            <div class="ag-head-block">
+                <div class="ag-client"><t t-esc="parada.partner_id.name"/></div>
+                <div class="ag-address"><t t-esc="parada.street or ''"/>, <t t-esc="parada.city or ''"/></div>
+                <t t-if="parada.phone">
+                    <a t-attf-href="tel:#{parada.phone}" class="ag-btn ag-btn-ghost">
+                        Llamar <t t-esc="parada.phone"/>
+                    </a>
+                </t>
+                <t t-if="parada.latitude and parada.longitude">
+                    <a t-attf-href="https://www.google.com/maps/dir/?api=1&amp;destination=#{parada.latitude},#{parada.longitude}"
+                       target="_blank" rel="noopener" class="ag-btn ag-btn-ghost">Como llegar</a>
+                </t>
+                <t t-if="parada.delivery_note">
+                    <div class="ag-note-box"><t t-esc="parada.delivery_note"/></div>
+                </t>
+            </div>
+
+            <h2 class="ag-h2">Lleva</h2>
+            <pre class="ag-summary"><t t-esc="parada.line_summary"/></pre>
+
+            <div class="ag-stop-actions" t-att-data-stop="parada.id"
+                 t-att-data-state="parada.state">
+                <t t-if="parada.state in ('pending', 'on_the_way')">
+                    <button class="ag-btn ag-btn-primary ag-btn-xl" data-action="arrived">
+                        Llegue
+                    </button>
+                </t>
+                <t t-if="parada.state in ('on_the_way', 'arrived')">
+                    <input type="text" id="ag-received" class="ag-note"
+                           placeholder="Quien recibe (opcional)"/>
+                    <label class="ag-btn ag-btn-ghost ag-file">
+                        Adjuntar foto
+                        <input type="file" id="ag-photo" accept="image/*" capture="environment" hidden="hidden"/>
+                    </label>
+                    <div id="ag-photo-name" class="ag-muted"></div>
+                    <button class="ag-btn ag-btn-ok ag-btn-xl" data-action="delivered">
+                        Entregado
+                    </button>
+                    <details class="ag-details">
+                        <summary>No pude entregar</summary>
+                        <select id="ag-reason" class="ag-select">
+                            <option value="">Motivo...</option>
+                            <t t-foreach="parada._fields['failure_reason'].selection" t-as="op">
+                                <option t-att-value="op[0]"><t t-esc="op[1]"/></option>
+                            </t>
+                        </select>
+                        <input type="text" id="ag-stopnote" class="ag-note"
+                               placeholder="Que paso"/>
+                        <button class="ag-btn ag-btn-bad" data-action="not_delivered">
+                            No entregado
+                        </button>
+                        <button class="ag-btn ag-btn-warn" data-action="rescheduled">
+                            Reprogramar
+                        </button>
+                    </details>
+                </t>
+                <t t-if="parada.state in ('delivered', 'not_delivered', 'rescheduled')">
+                    <div t-attf-class="ag-done-banner ag-stop-#{parada.state}">
+                        <t t-esc="dict(parada._fields['state'].selection).get(parada.state)"/>
+                        <t t-if="parada.delivery_time">
+                            a las <t t-esc="parada.delivery_time.strftime('%H:%M')"/>
+                        </t>
+                    </div>
+                </t>
+            </div>
+        </t>
+    </template>
+
+</odoo>

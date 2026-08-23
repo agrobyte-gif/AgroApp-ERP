@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+    <!--
+        Reglas de registro de Picker y Conductor.
+
+        En la fase 2 estos dos roles se quedaron sin reglas a proposito: una
+        regla sin modelo al que aplicarse no es seguridad. Ya existen los
+        modelos, asi que aqui se cierran.
+
+        El principio: la restriccion vive en la regla, no en la interfaz.
+        Esconder un menu no impide nada; quien construya una peticion a mano
+        entra igual. Estas reglas actuan aunque la llamada no venga de la PWA.
+    -->
+
+    <!-- ============ PICKER ============ -->
+
+    <record id="rule_picker_own_sessions" model="ir.rule">
+        <field name="name">Picker: solo sus propias preparaciones</field>
+        <field name="model_id" ref="agrogood_picking_ops.model_agrogood_picking_session"/>
+        <field name="domain_force">[('picker_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_picker'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_picker_own_pickings" model="ir.rule">
+        <field name="name">Picker: solo los albaranes que tiene asignados</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="domain_force">[('agrogood_picker_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_picker'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_picker_own_moves" model="ir.rule">
+        <field name="name">Picker: solo las lineas de sus albaranes</field>
+        <field name="model_id" ref="stock.model_stock_move"/>
+        <field name="domain_force">[('picking_id.agrogood_picker_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_picker'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- ============ CONDUCTOR ============ -->
+
+    <record id="rule_driver_own_routes" model="ir.rule">
+        <field name="name">Conductor: solo sus rutas</field>
+        <field name="model_id" ref="agrogood_logistics.model_agrogood_route"/>
+        <field name="domain_force">[('driver_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_driver'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_driver_own_stops" model="ir.rule">
+        <field name="name">Conductor: solo las paradas de sus rutas</field>
+        <field name="model_id" ref="agrogood_logistics.model_agrogood_route_stop"/>
+        <field name="domain_force">[('route_id.driver_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_driver'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_driver_own_pickings" model="ir.rule">
+        <field name="name">Conductor: solo los albaranes que lleva</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="domain_force">[('agrogood_route_id.driver_id', '=', user.id)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_driver'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!--
+        Los clientes que el operario necesita ver son solo aquellos a los que
+        les esta preparando o entregando algo. No la cartera completa.
+    -->
+    <record id="rule_picker_partners" model="ir.rule">
+        <field name="name">Picker: solo los clientes de sus albaranes</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="domain_force">['|', ('id', '=', user.partner_id.id),
+            ('id', 'in', user.env['stock.picking'].sudo().search(
+                [('agrogood_picker_id', '=', user.id)]).partner_id.ids)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_picker'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_driver_partners" model="ir.rule">
+        <field name="name">Conductor: solo los clientes de sus paradas</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="domain_force">['|', ('id', '=', user.partner_id.id),
+            ('id', 'in', user.env['agrogood.route.stop'].sudo().search(
+                [('route_id.driver_id', '=', user.id)]).partner_id.ids)]</field>
+        <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_driver'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    </data>
+</odoo>

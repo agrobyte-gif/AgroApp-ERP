@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_picking_picker,stock.picking picker,stock.model_stock_picking,agrogood_base.group_agrogood_picker,1,1,0,0
+access_move_picker,stock.move picker,stock.model_stock_move,agrogood_base.group_agrogood_picker,1,1,0,0
+access_move_line_picker,stock.move.line picker,stock.model_stock_move_line,agrogood_base.group_agrogood_picker,1,1,0,0
+access_picking_driver,stock.picking conductor,stock.model_stock_picking,agrogood_base.group_agrogood_driver,1,0,0,0
+access_move_driver,stock.move conductor,stock.model_stock_move,agrogood_base.group_agrogood_driver,1,0,0,0
+access_sale_order_picker,sale.order picker lectura,sale.model_sale_order,agrogood_base.group_agrogood_picker,1,0,0,0
+access_sale_order_driver,sale.order conductor lectura,sale.model_sale_order,agrogood_base.group_agrogood_driver,1,0,0,0
+access_fleet_vehicle_driver,fleet.vehicle conductor lectura,fleet.model_fleet_vehicle,agrogood_base.group_agrogood_driver,1,0,0,0
+access_fleet_model_driver,fleet.vehicle.model conductor lectura,fleet.model_fleet_vehicle_model,agrogood_base.group_agrogood_driver,1,0,0,0
+access_fleet_brand_driver,fleet.vehicle.model.brand conductor lectura,fleet.model_fleet_vehicle_model_brand,agrogood_base.group_agrogood_driver,1,0,0,0

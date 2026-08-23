@@ -168,20 +168,23 @@ class AgrogoodRouteStop(models.Model):
         return True
 
     def action_delivered(self):
-        """Marca la entrega y valida el albaran.
+        """Valida el albaran y solo entonces marca la parada como entregada.
 
-        Aqui SI se valida, al contrario que al terminar una preparacion. La
-        diferencia es que el conductor esta delante del cliente: si dice que
-        entrego, la mercaderia ya salio y el stock tiene que reflejarlo.
+        Aqui SI se valida el albaran, al contrario que al terminar una
+        preparacion. La diferencia es que el conductor esta delante del
+        cliente: si dice que entrego, la mercaderia ya salio y el stock tiene
+        que reflejarlo.
+
+        El ORDEN importa y no es casual. Marcar la parada primero y validar
+        despues deja un estado imposible cuando la validacion falla -por
+        ejemplo por un peso fuera de tolerancia-: la parada dice entregada y el
+        stock nunca se movio. Y como quien llama captura el error para
+        mostrarlo, no hay rollback que deshaga el escrito. Validando primero,
+        un fallo deja todo como estaba.
         """
         for s in self:
             if s.state == 'delivered':
                 continue
-            s.write({
-                'state': 'delivered',
-                'delivery_time': fields.Datetime.now(),
-                'arrival_time': s.arrival_time or fields.Datetime.now(),
-            })
             if s.picking_id.state not in ('done', 'cancel'):
                 for mv in s.picking_id.move_ids.filtered(
                         lambda m: m.state not in ('done', 'cancel')):
@@ -189,6 +192,11 @@ class AgrogoodRouteStop(models.Model):
                         mv.quantity = mv.product_uom_qty
                     mv.picked = True
                 s.picking_id.button_validate()
+            s.write({
+                'state': 'delivered',
+                'delivery_time': fields.Datetime.now(),
+                'arrival_time': s.arrival_time or fields.Datetime.now(),
+            })
         return True
 
     def action_not_delivered(self):
