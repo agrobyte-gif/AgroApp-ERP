@@ -10,7 +10,7 @@ class AgrogoodPriceVersionLine(models.Model):
 
     _name = 'agrogood.price.version.line'
     _description = 'Precio de una version'
-    _order = 'product_name, min_quantity'
+    _order = 'product_tmpl_id, min_quantity'
 
     version_id = fields.Many2one(
         comodel_name='agrogood.price.version',
@@ -24,11 +24,6 @@ class AgrogoodPriceVersionLine(models.Model):
         string="Producto",
         required=True,
         domain=[('sale_ok', '=', True)],
-    )
-    product_name = fields.Char(
-        related='product_tmpl_id.name',
-        string="Nombre",
-        store=True,
     )
     uom_name = fields.Char(
         related='product_tmpl_id.uom_id.name',

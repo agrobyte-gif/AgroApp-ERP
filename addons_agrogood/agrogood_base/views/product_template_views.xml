@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="product_template_view_form_inherit_agrogood" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.agrogood</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <group name="group_general" position="after">
+                <group string="Agrogood" name="agrogood">
+                    <field name="agrogood_is_variable_weight"/>
+                    <field name="agrogood_format_id"/>
+                    <field name="agrogood_weight_tolerance"
+                           invisible="not agrogood_is_variable_weight"/>
+                    <div colspan="2" class="text-muted"
+                         invisible="not agrogood_is_variable_weight">
+                        Se factura el peso registrado en picking, no el pedido.
+                        La unidad de medida debe ser de peso.
+                    </div>
+                </group>
+            </group>
+        </field>
+    </record>
+
+    <record id="agrogood_product_format_view_list" model="ir.ui.view">
+        <field name="name">agrogood.product.format.list</field>
+        <field name="model">agrogood.product.format</field>
+        <field name="arch" type="xml">
+            <list string="Formatos de presentacion" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="reference_weight"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="agrogood_product_format_action" model="ir.actions.act_window">
+        <field name="name">Formatos de presentacion</field>
+        <field name="res_model">agrogood.product.format</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Define un formato</p>
+            <p>Los formatos indican como se presenta el producto en bodega -caja,
+               malla, atado- para que el Picker sepa cuantos bultos preparar.
+               No son unidades de medida y no intervienen en ningun calculo.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_agrogood_product_format"
+              name="Formatos de presentacion"
+              parent="menu_agrogood_configuration"
+              action="agrogood_product_format_action"
+              sequence="20"/>
+
+</odoo>

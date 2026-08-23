@@ -4,3 +4,7 @@ access_agrogood_business_line_admin,agrogood.business.line admin general,model_a
 access_agrogood_business_line_logistics,agrogood.business.line logistica,model_agrogood_business_line,group_agrogood_logistics_manager,1,0,0,0
 access_agrogood_business_line_purchase,agrogood.business.line compras,model_agrogood_business_line,group_agrogood_purchase,1,0,0,0
 access_agrogood_business_line_user,agrogood.business.line lectura interna,model_agrogood_business_line,base.group_user,1,0,0,0
+access_product_format_user,agrogood.product.format lectura interna,model_agrogood_product_format,base.group_user,1,0,0,0
+access_product_format_sales,agrogood.product.format ventas,model_agrogood_product_format,group_agrogood_sales,1,1,1,0
+access_product_format_warehouse,agrogood.product.format bodega,model_agrogood_product_format,group_agrogood_warehouse,1,0,0,0
+access_product_format_admin,agrogood.product.format admin general,model_agrogood_product_format,group_agrogood_general_admin,1,1,1,1

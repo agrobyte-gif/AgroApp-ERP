@@ -86,7 +86,6 @@
                                            decoration-success="trend == 'down'"
                                            decoration-info="trend == 'new'"/>
                                     <field name="currency_id" column_invisible="1"/>
-                                    <field name="product_name" column_invisible="1"/>
                                     <field name="state" column_invisible="1"/>
                                 </list>
                             </field>

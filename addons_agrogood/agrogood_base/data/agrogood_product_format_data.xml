@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Formatos habituales en distribucion hortofruticola. Son informativos:
+        indican como se presenta el producto en bodega, no como se mide.
+        Ver ADR-003.
+    -->
+    <data noupdate="1">
+        <record id="product_format_caja" model="agrogood.product.format">
+            <field name="name">Caja</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="product_format_malla" model="agrogood.product.format">
+            <field name="name">Malla</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="product_format_bandeja" model="agrogood.product.format">
+            <field name="name">Bandeja</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="product_format_atado" model="agrogood.product.format">
+            <field name="name">Atado</field>
+            <field name="sequence">40</field>
+        </record>
+        <record id="product_format_saco" model="agrogood.product.format">
+            <field name="name">Saco</field>
+            <field name="sequence">50</field>
+        </record>
+        <record id="product_format_bolsa" model="agrogood.product.format">
+            <field name="name">Bolsa</field>
+            <field name="sequence">60</field>
+        </record>
+        <record id="product_format_granel" model="agrogood.product.format">
+            <field name="name">Granel</field>
+            <field name="sequence">70</field>
+            <field name="note">Sin envase. Se pesa directamente.</field>
+        </record>
+    </data>
+</odoo>
