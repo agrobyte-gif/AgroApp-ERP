@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="followup_view_list" model="ir.ui.view">
+        <field name="name">agrogood.followup.list</field>
+        <field name="model">agrogood.followup</field>
+        <field name="arch" type="xml">
+            <list string="A quien llamar hoy"
+                  decoration-bf="state == 'pending'"
+                  decoration-muted="state in ('not_interested', 'order_created')"
+                  decoration-danger="customer_status in ('inactive', 'lost')">
+                <field name="priority" widget="priority" optional="show"/>
+                <field name="partner_id"/>
+                <field name="phone" widget="phone" optional="show"/>
+                <field name="business_line_id" optional="show"/>
+                <field name="reason"/>
+                <field name="last_order_date" optional="show"/>
+                <field name="days_since_order" string="Dias" optional="show"/>
+                <field name="last_order_amount" optional="show" sum="Ultimo pedido"/>
+                <field name="avg_ticket" optional="hide"/>
+                <field name="last_order_products" string="Llevo" optional="show"/>
+                <field name="top_products" string="Suele llevar" optional="hide"/>
+                <field name="customer_status" widget="badge" optional="show"
+                       decoration-success="customer_status == 'active'"
+                       decoration-warning="customer_status == 'at_risk'"
+                       decoration-danger="customer_status in ('inactive', 'lost')"/>
+                <field name="user_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'pending'"
+                       decoration-success="state == 'order_created'"
+                       decoration-warning="state in ('contacted', 'rescheduled')"
+                       decoration-danger="state in ('not_interested', 'no_answer')"/>
+                <button name="action_create_order" type="object" string="Crear pedido"
+                        class="btn-link" icon="fa-plus-circle"
+                        invisible="state in ('order_created', 'not_interested')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="followup_view_form" model="ir.ui.view">
+        <field name="name">agrogood.followup.form</field>
+        <field name="model">agrogood.followup</field>
+        <field name="arch" type="xml">
+            <form string="Seguimiento comercial">
+                <header>
+                    <button name="action_create_order" type="object" class="btn-primary"
+                            string="Crear pedido"
+                            invisible="state in ('order_created', 'not_interested')"/>
+                    <button name="action_contacted" type="object" string="Contactado"
+                            invisible="state != 'pending'"/>
+                    <button name="action_no_answer" type="object" string="Sin respuesta"
+                            invisible="state not in ('pending', 'contacted')"/>
+                    <button name="action_rescheduled" type="object" string="Reprogramar"
+                            invisible="state in ('order_created', 'not_interested')"/>
+                    <button name="action_not_interested" type="object" string="No interesado"
+                            invisible="state in ('order_created', 'not_interested')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,contacted,order_created"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_partner" type="object"
+                                class="oe_stat_button" icon="fa-user">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Ficha del</span>
+                                <span class="o_stat_text">cliente</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Por que llamarle">
+                            <field name="reason" readonly="1"/>
+                            <field name="date"/>
+                            <field name="priority" widget="priority"/>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                        </group>
+                        <group string="Contacto">
+                            <field name="partner_id" readonly="1"/>
+                            <field name="phone" widget="phone"/>
+                            <field name="city"/>
+                            <field name="business_line_id"/>
+                        </group>
+                    </group>
+                    <group string="Su comportamiento de compra">
+                        <group>
+                            <field name="customer_status"/>
+                            <field name="last_order_date"/>
+                            <field name="days_since_order"/>
+                        </group>
+                        <group>
+                            <field name="last_order_amount"/>
+                            <field name="avg_ticket"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="last_order_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="last_order_products" readonly="1"/>
+                        <field name="top_products" readonly="1"/>
+                        <field name="sale_order_id" invisible="not sale_order_id"/>
+                    </group>
+                    <notebook>
+                        <page string="Notas de la gestion" name="note">
+                            <field name="note" placeholder="Que dijo el cliente"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="followup_view_search" model="ir.ui.view">
+        <field name="name">agrogood.followup.search</field>
+        <field name="model">agrogood.followup</field>
+        <field name="arch" type="xml">
+            <search string="Seguimientos">
+                <field name="partner_id"/>
+                <field name="user_id"/>
+                <filter name="pendientes" string="Pendientes de contactar"
+                        domain="[('state', '=', 'pending')]"/>
+                <filter name="abiertos" string="Abiertos"
+                        domain="[('state', 'in', ('pending', 'contacted', 'rescheduled'))]"/>
+                <filter name="hoy" string="De hoy"
+                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="mios" string="Asignados a mi" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="mismo_dia" string="Compraron este dia la semana pasada"
+                        domain="[('reason', '=', 'same_weekday')]"/>
+                <filter name="caida" string="Con caida de volumen"
+                        domain="[('reason', '=', 'volume_drop')]"/>
+                <filter name="inactivos" string="Inactivos"
+                        domain="[('reason', '=', 'inactive')]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_state" string="Estado" context="{'group_by': 'state'}"/>
+                    <filter name="g_reason" string="Motivo" context="{'group_by': 'reason'}"/>
+                    <filter name="g_line" string="Linea comercial"
+                            context="{'group_by': 'business_line_id'}"/>
+                    <filter name="g_user" string="Responsable" context="{'group_by': 'user_id'}"/>
+                    <filter name="g_date" string="Fecha" context="{'group_by': 'date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="followup_action" model="ir.actions.act_window">
+        <field name="name">A quien llamar hoy</field>
+        <field name="res_model">agrogood.followup</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pendientes': 1, 'search_default_hoy': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nadie pendiente de contactar</p>
+            <p>Cada manana el sistema revisa el historial y arma esta lista:
+               clientes que compraron este mismo dia la semana pasada y aun no han
+               pedido, los que se pasaron de su frecuencia habitual y los que
+               estan comprando bastante menos.</p>
+        </field>
+    </record>
+
+</odoo>

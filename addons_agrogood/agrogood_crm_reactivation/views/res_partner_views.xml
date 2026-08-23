@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_inherit_crm_agrogood" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.agrogood.crm</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="agrogood_base.res_partner_view_form_inherit_agrogood"/>
+        <field name="arch" type="xml">
+            <field name="agrogood_business_line_id" position="after">
+                <field name="agrogood_customer_status" readonly="1"
+                       invisible="not agrogood_business_line_id"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="res_partner_view_form_crm_page" model="ir.ui.view">
+        <field name="name">res.partner.form.agrogood.crm.page</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Comportamiento de compra" name="agrogood_crm"
+                      invisible="not agrogood_business_line_id"
+                      groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin">
+                    <group>
+                        <group string="Actividad">
+                            <field name="agrogood_customer_status" readonly="1"/>
+                            <field name="agrogood_order_count" readonly="1"/>
+                            <field name="agrogood_first_order_date" readonly="1"/>
+                            <field name="agrogood_last_order_date" readonly="1"/>
+                            <field name="agrogood_days_since_order"/>
+                        </group>
+                        <group string="Patron">
+                            <field name="agrogood_usual_weekday" readonly="1"/>
+                            <field name="agrogood_avg_days_between" readonly="1"/>
+                            <field name="agrogood_avg_ticket" readonly="1"/>
+                            <field name="agrogood_total_purchased" readonly="1"/>
+                            <field name="agrogood_volume_trend" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="agrogood_top_products" readonly="1"/>
+                    </group>
+                    <button name="action_agrogood_recompute" type="object"
+                            string="Recalcular ahora" class="btn-secondary"/>
+                    <div class="text-muted">
+                        Estos datos se recalculan cada madrugada y cada vez que el
+                        cliente confirma un pedido.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="res_partner_view_search_crm_agrogood" model="ir.ui.view">
+        <field name="name">res.partner.search.agrogood.crm</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter name="ag_activos" string="Clientes activos"
+                        domain="[('agrogood_customer_status', '=', 'active')]"/>
+                <filter name="ag_riesgo" string="En riesgo"
+                        domain="[('agrogood_customer_status', '=', 'at_risk')]"/>
+                <filter name="ag_inactivos" string="Inactivos o perdidos"
+                        domain="[('agrogood_customer_status', 'in', ('inactive', 'lost'))]"/>
+                <filter name="ag_caida" string="Comprando menos"
+                        domain="[('agrogood_volume_trend', '&lt;=', -30)]"/>
+                <group expand="0" string="Agrupar por Agrogood">
+                    <filter name="ag_g_status" string="Situacion comercial"
+                            context="{'group_by': 'agrogood_customer_status'}"/>
+                    <filter name="ag_g_weekday" string="Dia habitual de compra"
+                            context="{'group_by': 'agrogood_usual_weekday'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="partner_action_crm" model="ir.actions.act_window">
+        <field name="name">Clientes por situacion</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('agrogood_business_line_id','!=',False),('parent_id','=',False)]</field>
+        <field name="context">{'search_default_ag_g_status': 1}</field>
+    </record>
+</odoo>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_agrogood_crm" name="Seguimiento comercial"
+              parent="agrogood_base.menu_agrogood_root" sequence="25"
+              groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+    <menuitem id="menu_agrogood_followup" name="A quien llamar hoy"
+              parent="menu_agrogood_crm" action="followup_action" sequence="10"/>
+    <menuitem id="menu_agrogood_partners_crm" name="Clientes por situacion"
+              parent="menu_agrogood_crm" action="partner_action_crm" sequence="20"/>
+</odoo>

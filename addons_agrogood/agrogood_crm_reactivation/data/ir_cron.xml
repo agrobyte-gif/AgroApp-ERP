@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Las metricas se recalculan de madrugada, cuando nadie trabaja:
+             recorrer el historico de pedidos de toda la cartera en horario
+             comercial ralentizaria a quien esta tomando pedidos. -->
+        <record id="cron_metricas_clientes" model="ir.cron">
+            <field name="name">Agrogood: recalcular comportamiento de compra</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_agrogood_metrics()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- La lista de llamadas se arma despues de las metricas, para que use
+             datos del dia y no de ayer. -->
+        <record id="cron_seguimientos" model="ir.cron">
+            <field name="name">Agrogood: armar la lista de recontacto</field>
+            <field name="model_id" ref="model_agrogood_followup"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_generar_seguimientos()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>
