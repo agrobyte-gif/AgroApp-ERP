@@ -9,8 +9,8 @@
                 <meta charset="utf-8"/>
                 <meta name="viewport"
                       content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-                <meta name="theme-color" content="#33553C"/>
-                <title><t t-esc="titulo or 'Agrogood'"/></title>
+                <meta name="theme-color" content="#15653B"/>
+                <title><t t-esc="titulo or 'Agroapp'"/></title>
                 <link rel="manifest" href="/agrogood_pwa/static/manifest.webmanifest"/>
                 <link rel="stylesheet" href="/agrogood_pwa/static/src/css/pwa.css"/>
                 <script defer="defer" src="/agrogood_pwa/static/src/js/pwa.js"/>
@@ -18,7 +18,10 @@
             <body>
                 <header class="ag-top">
                     <a t-if="volver" t-att-href="volver" class="ag-back">&#8592;</a>
-                    <span class="ag-title"><t t-esc="titulo or 'Agrogood'"/></span>
+                    <img t-if="not volver" class="ag-logo"
+                         src="/agrogood_branding/static/src/img/logo-blanco.png"
+                         alt="Agroapp"/>
+                    <span class="ag-title"><t t-esc="titulo or 'Agroapp'"/></span>
                     <span class="ag-user"><t t-esc="env.user.name"/></span>
                 </header>
                 <main class="ag-main">

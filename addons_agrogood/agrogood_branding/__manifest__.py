@@ -30,6 +30,11 @@ contrario, usar la marca Odoo para un producto que ya no lo es.
         'data/agroapp_data.xml',
     ],
     'assets': {
+        # Las variables van ANTES que todo lo demas: definen el color que el
+        # resto de hojas de estilo compila encima.
+        'web._assets_primary_variables': [
+            ('prepend', 'agrogood_branding/static/src/scss/primary_variables.scss'),
+        ],
         'web.assets_backend': [
             'agrogood_branding/static/src/js/branding.js',
         ],

@@ -1,0 +1,47 @@
+// Paleta Agroapp, derivada del verde del logotipo de Agrogood (#28C070).
+//
+// Toda la escala comparte el MISMO tono (148 grados): solo cambia la
+// luminosidad, y la saturacion baja en los extremos claros para que los fondos
+// no chillen. Asi la interfaz se lee como una sola familia de color y no como
+// verdes sueltos que casualmente conviven.
+//
+// El reparto no es estetico, es de contraste medido:
+//
+//   #28C070  el verde de marca. Con texto blanco encima da 2,37:1, muy por
+//            debajo del 4,5:1 que pide WCAG AA. Por eso NO se usa en botones
+//            ni barras: se reserva para lo que identifica -logo, exito,
+//            insignias sobre fondo claro-, donde luce y se lee.
+//   #1C874F  el mismo tono al 32% de luminosidad. Con blanco da 4,54:1 y pasa
+//            AA. Es el que sostiene botones, menu activo, enlaces y barras,
+//            que es donde la gente pasa ocho horas al dia.
+
+$o-agroapp-950: #0C321E;
+$o-agroapp-900: #114A2C;
+$o-agroapp-800: #15653B;
+$o-agroapp-700: #1C874F;   // superficies con texto blanco (AA)
+$o-agroapp-600: #23A962;
+$o-agroapp-500: #28C070;   // marca
+$o-agroapp-400: #55D391;
+$o-agroapp-300: #8FD6B1;
+$o-agroapp-200: #C9E4D5;
+$o-agroapp-100: #E5F0EA;
+$o-agroapp-50:  #F4F8F6;
+
+// Sustituye el morado #71639e de Odoo Community en toda la aplicacion.
+$o-community-color: $o-agroapp-700;
+$o-enterprise-color: $o-agroapp-700;
+$o-brand-odoo: $o-agroapp-700;
+$o-brand-primary: $o-agroapp-700;
+$o-brand-secondary: $o-agroapp-500;
+
+// Acciones y enlaces
+$o-action: $o-agroapp-700;
+$o-main-link-color: $o-agroapp-800;
+
+// El verde de marca queda para el estado de exito, que es donde debe verse.
+$o-success: $o-agroapp-500;
+
+// Menu lateral y barra superior: el tono profundo aguanta texto blanco todo
+// el dia sin cansar.
+$o-navbar-background-color: $o-agroapp-800;
+$o-navbar-entries-color: #FFFFFF;
