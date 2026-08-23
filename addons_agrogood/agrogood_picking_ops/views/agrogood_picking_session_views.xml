@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="session_view_list" model="ir.ui.view">
+        <field name="name">agrogood.picking.session.list</field>
+        <field name="model">agrogood.picking.session</field>
+        <field name="arch" type="xml">
+            <list string="Preparaciones"
+                  decoration-warning="state == 'in_progress'"
+                  decoration-danger="missing_count &gt; 0 or not_found_count &gt; 0">
+                <field name="picking_id"/>
+                <field name="picker_id" widget="many2one_avatar_user"/>
+                <field name="partner_id" optional="show"/>
+                <field name="date_start" optional="show"/>
+                <field name="date_end" optional="hide"/>
+                <field name="waiting_minutes" optional="hide" sum="Espera"/>
+                <field name="duration_minutes" sum="Tiempo total"/>
+                <field name="line_count" sum="Lineas"/>
+                <field name="missing_count" sum="Faltantes"/>
+                <field name="substituted_count" optional="hide" sum="Sustituidos"/>
+                <field name="not_found_count" optional="hide" sum="No encontrados"/>
+                <field name="incident_count" optional="show" sum="Incidencias"/>
+                <field name="lines_per_minute" optional="hide" digits="[16,2]"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'assigned'"
+                       decoration-warning="state == 'in_progress'"
+                       decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="session_view_form" model="ir.ui.view">
+        <field name="name">agrogood.picking.session.form</field>
+        <field name="model">agrogood.picking.session</field>
+        <field name="arch" type="xml">
+            <form string="Preparacion">
+                <header>
+                    <button name="action_start" type="object" string="Empezar"
+                            class="btn-primary" invisible="state != 'assigned'"/>
+                    <button name="action_finish" type="object" string="Terminar"
+                            class="btn-primary" invisible="state != 'in_progress'"/>
+                    <button name="action_cancel" type="object" string="Cancelar"
+                            invisible="state in ('done', 'cancelled')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="assigned,in_progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_picking" type="object"
+                                class="oe_stat_button" icon="fa-truck">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Abrir</span>
+                                <span class="o_stat_text">albaran</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Asignacion">
+                            <field name="picking_id" readonly="state != 'assigned'"/>
+                            <field name="picker_id" widget="many2one_avatar_user"
+                                   readonly="state != 'assigned'"/>
+                            <field name="partner_id"/>
+                            <field name="sale_order_id"/>
+                        </group>
+                        <group string="Tiempos">
+                            <field name="date_assigned"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="waiting_minutes"/>
+                            <field name="duration_minutes"/>
+                        </group>
+                    </group>
+                    <group string="Resultado">
+                        <group>
+                            <field name="line_count"/>
+                            <field name="qty_total"/>
+                            <field name="lines_per_minute" digits="[16,2]"/>
+                        </group>
+                        <group>
+                            <field name="missing_count"/>
+                            <field name="substituted_count"/>
+                            <field name="not_found_count"/>
+                            <field name="cancelled_count"/>
+                            <field name="incident_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Observaciones" name="note">
+                            <field name="note" placeholder="Lo que el Picker quiera dejar anotado"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="session_view_search" model="ir.ui.view">
+        <field name="name">agrogood.picking.session.search</field>
+        <field name="model">agrogood.picking.session</field>
+        <field name="arch" type="xml">
+            <search string="Preparaciones">
+                <field name="picking_id"/>
+                <field name="picker_id"/>
+                <field name="partner_id"/>
+                <filter name="mias" string="Mis preparaciones" domain="[('picker_id','=',uid)]"/>
+                <separator/>
+                <filter name="abiertas" string="Abiertas"
+                        domain="[('state','in',('assigned','in_progress'))]"/>
+                <filter name="en_curso" string="En preparacion"
+                        domain="[('state','=','in_progress')]"/>
+                <filter name="con_errores" string="Con faltantes o incidencias"
+                        domain="['|','|',('missing_count','&gt;',0),('not_found_count','&gt;',0),('incident_count','&gt;',0)]"/>
+                <separator/>
+                <filter name="hoy" string="De hoy"
+                        domain="[('date_assigned','&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)))]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_picker" string="Picker" context="{'group_by':'picker_id'}"/>
+                    <filter name="g_state" string="Estado" context="{'group_by':'state'}"/>
+                    <filter name="g_date" string="Dia" context="{'group_by':'date_assigned:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="session_action" model="ir.actions.act_window">
+        <field name="name">Preparaciones</field>
+        <field name="res_model">agrogood.picking.session</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_abiertas': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nada en preparacion</p>
+            <p>Asigna albaranes a un Picker desde la lista de albaranes para
+               empezar a medir tiempos y errores.</p>
+        </field>
+    </record>
+
+    <record id="session_action_productivity" model="ir.actions.act_window">
+        <field name="name">Productividad por Picker</field>
+        <field name="res_model">agrogood.picking.session</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('state','=','done')]</field>
+        <field name="context">{'search_default_g_picker': 1, 'search_default_hoy': 1}</field>
+    </record>
+</odoo>

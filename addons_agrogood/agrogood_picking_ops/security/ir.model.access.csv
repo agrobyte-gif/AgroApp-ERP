@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_session_picker,sesion picker,model_agrogood_picking_session,agrogood_base.group_agrogood_picker,1,1,0,0
+access_session_warehouse,sesion bodega,model_agrogood_picking_session,agrogood_base.group_agrogood_warehouse,1,1,1,0
+access_session_logistics,sesion logistica,model_agrogood_picking_session,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_session_sales,sesion ventas lectura,model_agrogood_picking_session,agrogood_base.group_agrogood_sales,1,0,0,0
+access_session_admin,sesion admin general,model_agrogood_picking_session,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_assign_wizard,asistente asignar picker,model_agrogood_assign_picker,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_assign_wizard_wh,asistente asignar picker bodega,model_agrogood_assign_picker,agrogood_base.group_agrogood_warehouse,1,1,1,1

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="assign_picker_view_form" model="ir.ui.view">
+        <field name="name">agrogood.assign.picker.form</field>
+        <field name="model">agrogood.assign.picker</field>
+        <field name="arch" type="xml">
+            <form string="Asignar a un Picker">
+                <group>
+                    <field name="picker_id" widget="many2one_avatar_user"/>
+                    <field name="current_load" invisible="not picker_id"/>
+                </group>
+                <field name="picking_ids" readonly="1">
+                    <list>
+                        <field name="name"/>
+                        <field name="partner_id"/>
+                        <field name="scheduled_date"/>
+                        <field name="state"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_assign" type="object" string="Asignar"
+                            class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"
+                            data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="stock_picking_view_form_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.picking.form.inherit.agrogood</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_agrogood_open_session" type="object"
+                        class="oe_stat_button" icon="fa-user"
+                        invisible="not agrogood_picker_id">
+                    <div class="o_stat_info">
+                        <field name="agrogood_picker_id" class="o_stat_text"/>
+                        <span class="o_stat_text">Preparacion</span>
+                    </div>
+                </button>
+            </xpath>
+
+            <xpath expr="//button[@name='action_assign']" position="before">
+                <button name="action_agrogood_assign_picker" type="object"
+                        string="Asignar Picker" class="btn-secondary"
+                        invisible="state in ('done', 'cancel') or agrogood_picker_id"/>
+            </xpath>
+
+            <xpath expr="//field[@name='scheduled_date']" position="after">
+                <field name="agrogood_session_state" readonly="1"
+                       invisible="not agrogood_session_state"/>
+                <field name="agrogood_has_variable_weight" invisible="1"/>
+            </xpath>
+
+            <!-- El resultado por linea junto a la cantidad: es lo que el Picker
+                 marca mientras prepara, y lo que Logistica revisa despues. -->
+            <xpath expr="//field[@name='move_ids_without_package']/list//field[@name='quantity']"
+                   position="after">
+                <field name="agrogood_is_variable_weight" column_invisible="1"/>
+                <field name="agrogood_weight_deviation" optional="hide" readonly="1"
+                       decoration-danger="abs(agrogood_weight_deviation) &gt; 10"/>
+                <field name="agrogood_line_status" optional="show"
+                       decoration-success="agrogood_line_status == 'confirmed'"
+                       decoration-warning="agrogood_line_status in ('missing', 'substituted')"
+                       decoration-danger="agrogood_line_status in ('not_found', 'cancelled')"
+                       widget="badge"/>
+                <field name="agrogood_substitute_product_id" optional="hide"
+                       readonly="agrogood_line_status != 'substituted'"/>
+                <field name="agrogood_incident_note" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_picking_view_list_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.picking.list.inherit.agrogood</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='state']" position="before">
+                <field name="agrogood_picker_id" widget="many2one_avatar_user"
+                       optional="show"/>
+                <field name="agrogood_session_state" widget="badge" optional="show"
+                       decoration-info="agrogood_session_state == 'assigned'"
+                       decoration-warning="agrogood_session_state == 'in_progress'"
+                       decoration-success="agrogood_session_state == 'done'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_picking_view_search_inherit_agrogood" model="ir.ui.view">
+        <field name="name">stock.picking.search.inherit.agrogood</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter name="agrogood_sin_picker" string="Sin Picker asignado"
+                        domain="[('agrogood_picker_id', '=', False),
+                                 ('state', 'in', ('assigned', 'confirmed'))]"/>
+                <filter name="agrogood_en_preparacion" string="En preparacion"
+                        domain="[('agrogood_session_state', '=', 'in_progress')]"/>
+                <filter name="agrogood_preparados" string="Preparados"
+                        domain="[('agrogood_session_state', '=', 'done')]"/>
+                <group expand="0" string="Agrupar por Picker">
+                    <filter name="agrogood_g_picker" string="Picker"
+                            context="{'group_by': 'agrogood_picker_id'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Asignar Picker desde la seleccion en la lista de albaranes: Felipe
+         reparte el trabajo del dia en bloque, no albaran por albaran. -->
+    <record id="action_assign_picker_multi" model="ir.actions.server">
+        <field name="name">Asignar a un Picker</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_agrogood_assign_picker()</field>
+    </record>
+
+</odoo>
