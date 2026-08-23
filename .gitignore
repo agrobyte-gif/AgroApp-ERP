@@ -17,3 +17,14 @@ config/odoo.conf.bak
 .idea/
 .vscode/
 *.log
+
+# Proyecto movil: dependencias y artefactos de compilacion. Se regeneran con
+# `npm install` y `npx cap sync`, no tiene sentido versionarlos.
+movil/node_modules/
+movil/android/build/
+movil/android/app/build/
+movil/android/.gradle/
+movil/android/local.properties
+movil/android/capacitor-cordova-android-plugins/
+movil/www/logo.png
+*.apk
