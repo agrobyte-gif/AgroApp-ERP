@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_agrogood_procurement"
+              name="Compras"
+              parent="agrogood_base.menu_agrogood_root"
+              sequence="30"
+              groups="agrogood_base.group_agrogood_purchase,agrogood_base.group_agrogood_logistics_manager,agrogood_base.group_agrogood_general_admin"/>
+
+    <menuitem id="menu_agrogood_purchase_request"
+              name="Pizarra de compras"
+              parent="menu_agrogood_procurement"
+              action="agrogood_purchase_request_action"
+              sequence="10"/>
+</odoo>

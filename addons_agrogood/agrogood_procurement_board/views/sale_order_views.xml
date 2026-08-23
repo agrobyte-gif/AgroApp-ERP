@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_view_form_inherit_board" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.procurement.board</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="agrogood_sales.sale_order_view_form_inherit_agrogood"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_agrogood_close']" position="before">
+                <button name="action_agrogood_request_replenishment" type="object"
+                        string="Pedir reposicion" class="btn-secondary"
+                        invisible="state not in ('sale', 'done') or not agrogood_has_shortage"
+                        help="Crea una solicitud en la pizarra de Compras por cada linea con faltante."/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_agrogood_view_requests" type="object"
+                        class="oe_stat_button" icon="fa-shopping-basket"
+                        invisible="agrogood_request_count == 0">
+                    <field name="agrogood_request_count" widget="statinfo"
+                           string="Solicitudes"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

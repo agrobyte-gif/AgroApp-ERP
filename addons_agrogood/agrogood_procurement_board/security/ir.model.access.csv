@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_req_purchase,solicitud compras,model_agrogood_purchase_request,agrogood_base.group_agrogood_purchase,1,1,1,0
+access_req_logistics,solicitud logistica,model_agrogood_purchase_request,agrogood_base.group_agrogood_logistics_manager,1,1,1,0
+access_req_warehouse,solicitud bodega,model_agrogood_purchase_request,agrogood_base.group_agrogood_warehouse,1,0,0,0
+access_req_sales,solicitud ventas,model_agrogood_purchase_request,agrogood_base.group_agrogood_sales,1,1,1,0
+access_req_admin,solicitud admin general,model_agrogood_purchase_request,agrogood_base.group_agrogood_general_admin,1,1,1,1
