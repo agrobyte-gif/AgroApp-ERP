@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_mapa" model="ir.actions.act_url">
+        <field name="name">Mapa de seguimiento</field>
+        <field name="url">/agrogood/mapa</field>
+        <field name="target">new</field>
+    </record>
+    <menuitem id="menu_mapa" name="Mapa de seguimiento"
+              parent="agrogood_dashboards.menu_dash_log"
+              action="action_mapa" sequence="5"/>
+</odoo>

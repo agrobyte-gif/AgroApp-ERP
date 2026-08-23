@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Un conductor solo ve su propio rastro. No el de sus companeros:
+             el dato existe para coordinar el reparto, no para que se vigilen
+             entre ellos. -->
+        <record id="rule_driver_own_positions" model="ir.rule">
+            <field name="name">Conductor: solo su propio rastro</field>
+            <field name="model_id" ref="model_agrogood_driver_position"/>
+            <field name="domain_force">[('route_id.driver_id', '=', user.id)]</field>
+            <field name="groups" eval="[Command.link(ref('agrogood_base.group_agrogood_driver'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+    </data>
+</odoo>

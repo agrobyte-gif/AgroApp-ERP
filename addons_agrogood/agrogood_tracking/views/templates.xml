@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Mapa de seguimiento para Logistica.
+
+        Se sirve como pagina propia y no como vista de Odoo porque `web_map`
+        es de Enterprise y aqui no existe. Leaflet va empaquetado en el modulo,
+        no desde un CDN: la bodega puede quedarse sin internet y el mapa tiene
+        que seguir abriendo con las posiciones ya guardadas.
+
+        Los mosaicos vienen de OpenStreetMap, que es gratuito y no pide clave.
+        Si algun dia hace falta trafico en tiempo real o calculo de rutas, ahi
+        si habra que contratar un servicio.
+    -->
+    <template id="mapa_rutas" name="Agroapp - seguimiento de rutas">&lt;!DOCTYPE html&gt;
+        <html>
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Seguimiento de rutas</title>
+                <link rel="stylesheet" href="/agrogood_tracking/static/src/lib/leaflet.css"/>
+                <link rel="stylesheet" href="/agrogood_tracking/static/src/css/mapa.css"/>
+                <script src="/agrogood_tracking/static/src/lib/leaflet.js"/>
+            </head>
+            <body>
+                <header class="mp-top">
+                    <span class="mp-title">Seguimiento de rutas</span>
+                    <span class="mp-fecha"><t t-esc="fecha"/></span>
+                    <span class="mp-auto">Se actualiza solo cada 30 s</span>
+                </header>
+                <div class="mp-wrap">
+                    <aside class="mp-lista">
+                        <t t-if="not rutas">
+                            <p class="mp-vacio">No hay ninguna ruta en curso ahora mismo.</p>
+                        </t>
+                        <t t-foreach="rutas" t-as="r">
+                            <div class="mp-ruta" t-att-data-ruta="r['id']">
+                                <div class="mp-ruta-cab">
+                                    <span class="mp-punto" t-att-style="'background:%s' % r['color']"/>
+                                    <span class="mp-ruta-nom"><t t-esc="r['nombre']"/></span>
+                                </div>
+                                <div class="mp-ruta-sub">
+                                    <t t-esc="r['conductor']"/>
+                                    <t t-if="r['vehiculo']"> &#183; <t t-esc="r['vehiculo']"/></t>
+                                </div>
+                                <div class="mp-barra">
+                                    <div class="mp-barra-fill"
+                                         t-att-style="'width:%s%%' % r['avance']"/>
+                                </div>
+                                <div class="mp-ruta-sub">
+                                    <t t-esc="r['entregadas']"/> de <t t-esc="r['paradas']"/> entregadas
+                                    <t t-if="r['fallidas']">
+                                        &#183; <span class="mp-mal"><t t-esc="r['fallidas']"/> fallidas</span>
+                                    </t>
+                                </div>
+                                <div class="mp-ruta-sub mp-visto">
+                                    <t t-if="r['ultima']">Ultima senal: <t t-esc="r['ultima']"/></t>
+                                    <t t-else="">Sin senal del telefono todavia</t>
+                                </div>
+                            </div>
+                        </t>
+                    </aside>
+                    <div id="mapa" class="mp-mapa"/>
+                </div>
+                <script type="application/json" id="mp-datos"><t t-esc="datos_json"/></script>
+                <script src="/agrogood_tracking/static/src/js/mapa.js"/>
+            </body>
+        </html>
+    </template>
+
+</odoo>

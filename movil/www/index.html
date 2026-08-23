@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15653B">
+<title>Agroapp</title>
+<style>
+:root{
+  --ag-800:#15653B; --ag-700:#1C874F; --ag-500:#28C070; --ag-100:#E5F0EA;
+  --ag-50:#F4F8F6; --tinta:#14201A; --tinta-2:#46564D; --tinta-3:#78877F;
+  --linea:#D5E2DA; --rojo:#9E3226; --ambar:#A8720F;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,Roboto,sans-serif;font-size:17px;
+     color:var(--tinta);background:var(--ag-50);
+     padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.pantalla{display:none;padding:20px;max-width:560px;margin:0 auto}
+.pantalla.activa{display:block}
+.marca{text-align:center;padding:32px 0 24px}
+.marca img{height:64px}
+h1{font-size:1.35rem;margin:0 0 6px;text-align:center}
+.sub{color:var(--tinta-3);text-align:center;margin:0 0 28px;font-size:15px}
+label{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
+input{width:100%;padding:14px;font:inherit;border:1px solid var(--linea);
+      border-radius:10px;background:#fff;min-height:52px}
+input:focus{outline:none;border-color:var(--ag-700)}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;
+     padding:14px;border:none;border-radius:10px;font:inherit;font-weight:600;
+     font-size:17px;cursor:pointer;margin-top:20px;background:var(--ag-700);color:#fff}
+.btn:disabled{opacity:.55}
+.btn-ghost{background:transparent;color:var(--ag-700);border:1px solid var(--linea)}
+.aviso{background:#fff;border:1px solid var(--linea);border-left:4px solid var(--ambar);
+       border-radius:10px;padding:16px;margin:20px 0;font-size:15px;line-height:1.5}
+.aviso b{display:block;margin-bottom:6px;color:var(--tinta)}
+.error{background:#F5E3E0;color:var(--rojo);border-radius:10px;padding:14px;
+       margin-top:16px;font-size:15px;display:none}
+.estado{background:#fff;border:1px solid var(--linea);border-radius:10px;
+        padding:18px;margin-bottom:14px}
+.estado-tit{font-weight:700;font-size:1.05rem;margin-bottom:4px}
+.estado-sub{color:var(--tinta-2);font-size:15px}
+.pastilla{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;
+          border-radius:999px;font-size:14px;font-weight:600;margin-top:10px}
+.on{background:var(--ag-100);color:var(--ag-800)}
+.off{background:#EEE;color:var(--tinta-3)}
+.punto{width:9px;height:9px;border-radius:50%;background:currentColor}
+.punto.late{animation:late 2s ease-in-out infinite}
+@keyframes late{0%,100%{opacity:1}50%{opacity:.35}}
+.pie{text-align:center;color:var(--tinta-3);font-size:13px;margin-top:24px;line-height:1.6}
+@media (prefers-reduced-motion:reduce){.punto.late{animation:none}}
+</style>
+</head>
+<body>
+
+<!-- ---------- Acceso ---------- -->
+<section id="p-acceso" class="pantalla activa">
+  <div class="marca"><img src="logo.png" alt="Agroapp"></div>
+  <h1>Agroapp</h1>
+  <p class="sub">Preparación de pedidos y reparto</p>
+
+  <label for="servidor">Dirección del servidor</label>
+  <input id="servidor" type="url" inputmode="url" autocapitalize="off"
+         placeholder="http://192.168.1.145:8069">
+
+  <label for="usuario">Usuario</label>
+  <input id="usuario" type="email" inputmode="email" autocapitalize="off"
+         autocomplete="username" placeholder="nombre@agrogood.cl">
+
+  <label for="clave">Contraseña</label>
+  <input id="clave" type="password" autocomplete="current-password">
+
+  <button id="btn-entrar" class="btn">Entrar</button>
+  <div id="err" class="error"></div>
+  <p class="pie">Pide la dirección del servidor al Administrador Técnico.</p>
+</section>
+
+<!-- ---------- Aviso de ubicación ---------- -->
+<section id="p-aviso" class="pantalla">
+  <div class="marca"><img src="logo.png" alt="Agroapp"></div>
+  <h1>Ubicación durante el reparto</h1>
+
+  <div class="aviso">
+    <b>Qué se registra</b>
+    Mientras tengas una ruta en marcha, la app envía tu ubicación a Agrogood
+    para que Logística sepa por dónde va el reparto y pueda avisar a los
+    clientes.
+  </div>
+  <div class="aviso">
+    <b>Cuándo deja de registrar</b>
+    Al terminar la ruta se detiene automáticamente. Fuera de tu jornada la app
+    no envía nada, aunque esté abierta.
+  </div>
+  <div class="aviso">
+    <b>Quién lo ve</b>
+    Solo Logística y la administración. Los demás conductores no ven tu
+    ubicación. El recorrido se borra a los 60 días.
+  </div>
+
+  <button id="btn-acepto" class="btn">Entiendo y acepto</button>
+  <button id="btn-rechazo" class="btn btn-ghost">Ahora no</button>
+  <p class="pie">Puedes trabajar sin aceptar, pero Logística no podrá ver el
+  avance de tu ruta en el mapa.</p>
+</section>
+
+<!-- ---------- Estado ---------- -->
+<section id="p-estado" class="pantalla">
+  <div class="marca"><img src="logo.png" alt="Agroapp"></div>
+  <div class="estado">
+    <div class="estado-tit" id="e-ruta">Sin ruta activa</div>
+    <div class="estado-sub" id="e-detalle">Cuando Logística te asigne una ruta y la inicies, aparecerá aquí.</div>
+    <div class="pastilla off" id="e-pastilla"><span class="punto"></span><span id="e-txt">Ubicación en reposo</span></div>
+  </div>
+  <button id="btn-abrir" class="btn">Abrir mis entregas</button>
+  <button id="btn-salir" class="btn btn-ghost">Cerrar sesión</button>
+  <p class="pie" id="e-envios"></p>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

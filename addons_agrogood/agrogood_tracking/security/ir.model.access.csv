@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pos_driver,posicion conductor,model_agrogood_driver_position,agrogood_base.group_agrogood_driver,1,0,1,0
+access_pos_logistics,posicion logistica,model_agrogood_driver_position,agrogood_base.group_agrogood_logistics_manager,1,0,0,1
+access_pos_admin,posicion admin general,model_agrogood_driver_position,agrogood_base.group_agrogood_general_admin,1,1,1,1

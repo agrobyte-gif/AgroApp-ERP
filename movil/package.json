@@ -1,0 +1,19 @@
+{
+  "name": "agroapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agroapp - preparacion de pedidos y reparto",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "abrir": "npx cap open android",
+    "apk": "cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/geolocation": "^6.1.1",
+    "@capacitor/preferences": "^6.0.4"
+  }
+}

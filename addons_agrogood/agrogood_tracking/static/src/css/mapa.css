@@ -1,0 +1,32 @@
+/* Mapa de seguimiento. Misma paleta que el resto de Agroapp. */
+:root{
+  --ag-800:#15653B; --ag-700:#1C874F; --ag-500:#28C070; --ag-100:#E5F0EA;
+  --ag-50:#F4F8F6; --tinta:#14201A; --tinta-2:#46564D; --tinta-3:#78877F;
+  --linea:#D5E2DA; --rojo:#9E3226;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+          color:var(--tinta);background:var(--ag-50)}
+.mp-top{display:flex;align-items:baseline;gap:16px;padding:12px 18px;
+        background:var(--ag-800);color:#fff}
+.mp-title{font-weight:700;font-size:17px}
+.mp-fecha{opacity:.85;font-size:14px}
+.mp-auto{margin-left:auto;font-size:12px;opacity:.7}
+.mp-wrap{display:flex;height:calc(100% - 46px)}
+.mp-lista{width:310px;flex:0 0 310px;overflow-y:auto;padding:12px;
+          border-right:1px solid var(--linea);background:#fff}
+.mp-mapa{flex:1;min-width:0}
+.mp-vacio{color:var(--tinta-3);padding:8px}
+.mp-ruta{border:1px solid var(--linea);border-radius:9px;padding:12px;margin-bottom:10px;
+         cursor:pointer}
+.mp-ruta:hover{border-color:var(--ag-700);background:var(--ag-50)}
+.mp-ruta-cab{display:flex;align-items:center;gap:8px}
+.mp-punto{width:12px;height:12px;border-radius:50%;flex:0 0 12px}
+.mp-ruta-nom{font-weight:600}
+.mp-ruta-sub{font-size:13px;color:var(--tinta-2);margin-top:3px}
+.mp-visto{color:var(--tinta-3);font-size:12px}
+.mp-mal{color:var(--rojo);font-weight:600}
+.mp-barra{height:6px;background:var(--ag-100);border-radius:3px;margin:8px 0 4px;overflow:hidden}
+.mp-barra-fill{height:100%;background:var(--ag-500)}
+.leaflet-popup-content{font-family:inherit;font-size:14px;margin:10px 12px}
+.leaflet-popup-content b{color:var(--ag-800)}
