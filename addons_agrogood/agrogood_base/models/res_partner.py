@@ -13,31 +13,46 @@ class ResPartner(models.Model):
              "que se proponen al crear un pedido.",
     )
 
-    agrogood_vat_pending = fields.Boolean(
-        string="RUT pendiente",
-        compute='_compute_agrogood_vat_pending',
+    agrogood_billing_blocked = fields.Boolean(
+        string="No facturable",
+        compute='_compute_agrogood_billing',
         store=True,
-        help="Cliente de una linea comercial de Agrogood al que le falta el RUT. "
-             "Puede recibir pedidos y despachos, pero no se le puede facturar.",
+        help="Al cliente le falta algun dato obligatorio para emitirle factura. "
+             "Puede recibir pedidos y despachos igualmente.",
+    )
+    agrogood_billing_blocker = fields.Char(
+        string="Motivo",
+        compute='_compute_agrogood_billing',
+        store=True,
+        help="Que dato falta exactamente.",
     )
 
     @api.depends('vat', 'agrogood_business_line_id')
-    def _compute_agrogood_vat_pending(self):
-        """Marca los clientes a los que aun no se puede facturar.
+    def _compute_agrogood_billing(self):
+        """Marca los clientes a los que aun no se puede facturar, y por que.
 
-        El bloqueo de la factura ya lo hace `l10n_cl` de forma nativa
-        (`_check_document_types_post` exige RUT y tipo de contribuyente en los
-        documentos fiscales chilenos). Lo que falta, y es lo que aporta este
-        campo, es poder encontrarlos y completarlos antes de que el problema
-        aparezca con el pedido ya entregado.
+        El bloqueo en si NO se implementa aqui: `l10n_cl` ya lo aplica de forma
+        nativa al validar el documento. Lo que falta, y es lo que aporta esto,
+        es poder encontrarlos y completarlos antes de que el problema aparezca
+        con el pedido ya entregado.
 
-        Se limita a los contactos con linea comercial asignada para no marcar
+        Se limita a los contactos con linea comercial para no marcar
         proveedores, empleados ni contactos internos.
         """
         for partner in self:
-            partner.agrogood_vat_pending = bool(
-                partner.agrogood_business_line_id and not partner.vat
-            )
+            motivos = partner._agrogood_billing_blockers()                 if partner.agrogood_business_line_id else []
+            partner.agrogood_billing_blocked = bool(motivos)
+            partner.agrogood_billing_blocker = " / ".join(motivos)
+
+    def _agrogood_billing_blockers(self):
+        """Devuelve los motivos por los que no se puede facturar a este cliente.
+
+        Punto de extension deliberado: cada localizacion exige datos distintos.
+        `agrogood_sales` anade aqui el tipo de contribuyente, que en Chile es
+        tan obligatorio como el RUT.
+        """
+        self.ensure_one()
+        return [] if self.vat else ["Falta el RUT"]
 
     @api.onchange('agrogood_business_line_id')
     def _onchange_agrogood_business_line_id(self):

@@ -86,3 +86,23 @@ Los datos maestros deben cargarse con esta clasificacion resuelta desde el
 principio: cada producto declara si es de peso fijo o variable, y los de peso
 variable se dan de alta en kilogramos. Cargar primero y reclasificar despues
 implica migrar movimientos ya registrados.
+
+## Addendum (2026-08-23) - el backorder en peso variable
+
+Detectado probando el flujo completo contra la base real.
+
+Cuando el Picker prepara 19,4 kg de los 20 pedidos, Odoo ofrece crear un
+**backorder** por los 0,6 kg restantes. En peso variable eso es un error
+conceptual: la diferencia no es una entrega pendiente, es lo que peso el bulto.
+Aceptarlo dejaria un albaran fantasma abierto por cada linea de peso variable,
+y en pocos dias el listado de entregas pendientes seria inservible.
+
+**Regla:** al validar un albaran cuyas lineas son de peso variable, se cierra
+sin backorder. La cantidad entregada es la definitiva por definicion.
+
+Se implementa en `agrogood_picking_ops` (fase 6), que es donde vive la
+validacion desde la PWA. Hasta entonces, quien valide a mano debe elegir
+"No crear pedido en espera".
+
+Verificado en la prueba de punta a punta: cerrando sin backorder, el pedido
+queda en 'Entregado' con un solo albaran y la factura sale por 19,4 kg.

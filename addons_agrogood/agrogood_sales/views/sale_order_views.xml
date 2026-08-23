@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        La vista de pedido de Odoo repite varios nombres: 'action_confirm' y
+        'action_quotation_send' aparecen dos veces cada uno, y
+        'product_uom_qty' tres. Una herencia por nombre tomaria la primera
+        coincidencia, que no siempre es la que se ve en pantalla. Por eso aqui
+        se usa XPath con el id o con la ruta completa.
+    -->
+    <record id="sale_order_view_form_inherit_agrogood" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.agrogood</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Traer el pedido anterior es la accion mas frecuente al tomar
+                 un pedido por WhatsApp, asi que va en la cabecera. -->
+            <xpath expr="//button[@id='action_confirm']" position="before">
+                <button name="action_agrogood_repeat_last_order" type="object"
+                        string="Traer ultimo pedido" class="btn-secondary"
+                        invisible="state not in ('draft', 'sent') or not partner_id"
+                        help="Copia productos y cantidades del ultimo pedido de este cliente. Los precios se recalculan con la tarifa vigente."/>
+            </xpath>
+
+            <xpath expr="//button[@id='action_confirm']" position="after">
+                <button name="action_agrogood_close" type="object" string="Cerrar pedido"
+                        invisible="state != 'sale' or agrogood_closed"/>
+                <button name="action_agrogood_reopen" type="object" string="Reabrir"
+                        invisible="not agrogood_closed"/>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="agrogood_closed" invisible="1"/>
+                <field name="agrogood_has_shortage" invisible="1"/>
+                <button class="oe_stat_button" icon="fa-exclamation-triangle"
+                        type="object" name="action_agrogood_reopen" disabled="1"
+                        invisible="not agrogood_has_shortage">
+                    <field name="agrogood_shortage_count" widget="statinfo"
+                           string="Con faltante"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="agrogood_business_line_id" readonly="1"
+                       invisible="not agrogood_business_line_id"/>
+            </xpath>
+
+            <xpath expr="//field[@name='commitment_date']" position="after">
+                <field name="agrogood_delivery_slot"/>
+                <field name="agrogood_source"/>
+                <field name="agrogood_delivery_note"
+                       placeholder="Restricciones de horario, quien recibe, acceso al local"/>
+            </xpath>
+
+            <!-- El faltante junto a la cantidad: es la columna que decide si
+                 el pedido puede prepararse hoy o necesita reposicion. -->
+            <xpath expr="//field[@name='order_line']/list//field[@name='product_uom_qty']"
+                   position="after">
+                <field name="agrogood_shortage_qty" optional="show" readonly="1"
+                       decoration-danger="agrogood_shortage_qty &gt; 0"/>
+            </xpath>
+
+            <xpath expr="//page[@name='other_information']" position="after">
+                <page string="Estado operativo" name="agrogood_ops">
+                    <group>
+                        <group string="Situacion">
+                            <field name="agrogood_state" readonly="1"/>
+                            <field name="delivery_status" readonly="1"/>
+                            <field name="invoice_status" readonly="1"/>
+                        </group>
+                        <group string="Excepcion">
+                            <field name="agrogood_exception"/>
+                            <field name="agrogood_exception_note"
+                                   invisible="not agrogood_exception"
+                                   placeholder="Que paso exactamente"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        El estado operativo no se edita: se calcula a partir del pedido,
+                        sus albaranes y sus facturas. La excepcion si se registra a mano,
+                        porque no se deduce de ningun otro dato.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="sale_order_view_list_inherit_agrogood" model="ir.ui.view">
+        <field name="name">sale.order.list.inherit.agrogood</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='state']" position="before">
+                <field name="agrogood_business_line_id" optional="show"/>
+                <field name="agrogood_state" widget="badge" optional="show"
+                       decoration-warning="agrogood_state == 'awaiting_stock'"
+                       decoration-info="agrogood_state in ('to_pick', 'picking')"
+                       decoration-success="agrogood_state in ('delivered', 'invoiced', 'closed')"
+                       decoration-danger="agrogood_state == 'cancelled'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- El filtro 'Mis pedidos' vive en view_sales_order_filter, no en la
+         vista que extiende el modulo sale sobre ella. -->
+    <record id="sale_order_view_search_inherit_agrogood" model="ir.ui.view">
+        <field name="name">sale.order.search.inherit.agrogood</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='my_sale_orders_filter']" position="after">
+                <separator/>
+                <filter name="agrogood_shortage" string="Con faltantes"
+                        domain="[('agrogood_has_shortage', '=', True)]"/>
+                <filter name="agrogood_exception" string="Con excepcion"
+                        domain="[('agrogood_exception', '!=', False)]"/>
+                <separator/>
+                <filter name="agrogood_today" string="Entrega hoy"
+                        domain="[('commitment_date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0))),
+                                 ('commitment_date', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(23,59,59)))]"/>
+            </xpath>
+            <xpath expr="//search" position="inside">
+                <group expand="0" string="Agrupar por Agrogood">
+                    <filter name="groupby_agrogood_state" string="Estado operativo"
+                            context="{'group_by': 'agrogood_state'}"/>
+                    <filter name="groupby_agrogood_line" string="Linea comercial"
+                            context="{'group_by': 'agrogood_business_line_id'}"/>
+                    <filter name="groupby_agrogood_source" string="Origen"
+                            context="{'group_by': 'agrogood_source'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="agrogood_business_line_view_form_inherit_sales" model="ir.ui.view">
+        <field name="name">agrogood.business.line.form.inherit.sales</field>
+        <field name="model">agrogood.business.line</field>
+        <field name="inherit_id" ref="agrogood_base.agrogood_business_line_view_form"/>
+        <field name="arch" type="xml">
+            <field name="pricelist_id" position="after">
+                <field name="payment_term_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

@@ -410,6 +410,21 @@ if ESCRIBIR:
     print(f"  clientes  : {n_emp} empresas con RUT, {n_hijos} direcciones de entrega, "
           f"{n_srut} sin RUT")
 
+    # La tarifa se propone por onchange al asignar la linea comercial, pero el
+    # onchange solo se dispara en la interfaz. En una carga masiva hay que
+    # aplicarla explicitamente, o los clientes quedan con la tarifa por defecto
+    # y los pedidos salen a precio cero.
+    aplicadas = 0
+    for linea in env["agrogood.business.line"].search([("pricelist_id", "!=", False)]):
+        socios = Socio.search([
+            ("agrogood_business_line_id", "=", linea.id),
+            ("parent_id", "=", False),
+        ])
+        if socios:
+            socios.property_product_pricelist = linea.pricelist_id
+            aplicadas += len(socios)
+    print(f"  tarifas   : aplicadas a {aplicadas} clientes segun su linea comercial")
+
     env.cr.commit()
     print("\n" + "=" * 76)
     print("IMPORTACION CONFIRMADA")
