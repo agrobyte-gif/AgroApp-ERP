@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Cada rol de Agrogood se define como una combinacion de grupos estandar
+        de Odoo. Se usa `implied_ids` con Command.link, que ANADE sin borrar la
+        jerarquia declarada en agrogood_base.
+
+        El criterio en cada caso es el minimo necesario para hacer el trabajo.
+        Lo que NO se concede es tan importante como lo que si, y por eso queda
+        anotado.
+    -->
+
+    <!-- Encargado de Ventas
+         Clientes, pedidos, tarifas y facturacion.
+         NO: ajustes de inventario, ordenes de compra, configuracion tecnica. -->
+    <record id="agrogood_base.group_agrogood_sales" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('sales_team.group_sale_salesman_all_leads')),
+            Command.link(ref('account.group_account_invoice')),
+            Command.link(ref('product.group_product_pricelist')),
+            Command.link(ref('base.group_partner_manager')),
+        ]"/>
+    </record>
+
+    <!-- Encargado de Compras
+         Proveedores, cotizaciones y ordenes de compra.
+         NO: precios de venta, pedidos de cliente, facturacion a clientes. -->
+    <record id="agrogood_base.group_agrogood_purchase" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('purchase.group_purchase_user')),
+            Command.link(ref('base.group_partner_manager')),
+        ]"/>
+    </record>
+
+    <!-- Encargado de Bodega
+         Recepciones, ajustes, mermas e inventarios. Lotes activados porque los
+         perecibles se controlan por caducidad (ADR-003, H6).
+         NO: gestion de almacenes ni de rutas, NO edicion de pedidos. -->
+    <record id="agrogood_base.group_agrogood_warehouse" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('stock.group_stock_user')),
+            Command.link(ref('stock.group_production_lot')),
+        ]"/>
+    </record>
+
+    <!-- Jefe de Logistica
+         Todo lo de Bodega mas la organizacion: ubicaciones y olas de picking.
+         Lectura de pedidos para poder planificar sin poder alterarlos.
+         NO: contabilidad, NO precios de venta. -->
+    <record id="agrogood_base.group_agrogood_logistics_manager" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('stock.group_stock_manager')),
+            Command.link(ref('stock.group_stock_multi_locations')),
+        ]"/>
+    </record>
+
+    <!-- Administrador General
+         Vision completa de la operacion. Contabilidad en SOLO LECTURA: dirige
+         y controla, no asienta. Deliberadamente SIN base.group_system: ver
+         toda la operacion no requiere poder alterar la configuracion tecnica
+         ni los registros de auditoria. -->
+    <record id="agrogood_base.group_agrogood_general_admin" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('account.group_account_readonly')),
+            Command.link(ref('sales_team.group_sale_manager')),
+            Command.link(ref('purchase.group_purchase_manager')),
+            Command.link(ref('stock.group_stock_manager')),
+        ]"/>
+    </record>
+
+    <!-- Administrador Tecnico
+         Configuracion de la plataforma, modulos e integraciones.
+         Es el unico rol con acceso a Ajustes. Ver H7 del informe de auditoria:
+         debe ser un usuario distinto del de Ventas de la misma persona. -->
+    <record id="agrogood_base.group_agrogood_technical_admin" model="res.groups">
+        <field name="implied_ids" eval="[
+            Command.link(ref('base.group_system')),
+        ]"/>
+    </record>
+
+    <!--
+        Pickers y Conductores no reciben ningun grupo estandar: operan solo
+        desde la PWA. Sus reglas de registro se definiran junto a los modelos
+        que van a consultar (agrogood_picking_ops y agrogood_logistics), porque
+        una regla sin modelo al que aplicarse no es seguridad, es decoracion.
+    -->
+
+</odoo>
