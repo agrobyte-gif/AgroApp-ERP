@@ -13,6 +13,32 @@ class ResPartner(models.Model):
              "que se proponen al crear un pedido.",
     )
 
+    agrogood_vat_pending = fields.Boolean(
+        string="RUT pendiente",
+        compute='_compute_agrogood_vat_pending',
+        store=True,
+        help="Cliente de una linea comercial de Agrogood al que le falta el RUT. "
+             "Puede recibir pedidos y despachos, pero no se le puede facturar.",
+    )
+
+    @api.depends('vat', 'agrogood_business_line_id')
+    def _compute_agrogood_vat_pending(self):
+        """Marca los clientes a los que aun no se puede facturar.
+
+        El bloqueo de la factura ya lo hace `l10n_cl` de forma nativa
+        (`_check_document_types_post` exige RUT y tipo de contribuyente en los
+        documentos fiscales chilenos). Lo que falta, y es lo que aporta este
+        campo, es poder encontrarlos y completarlos antes de que el problema
+        aparezca con el pedido ya entregado.
+
+        Se limita a los contactos con linea comercial asignada para no marcar
+        proveedores, empleados ni contactos internos.
+        """
+        for partner in self:
+            partner.agrogood_vat_pending = bool(
+                partner.agrogood_business_line_id and not partner.vat
+            )
+
     @api.onchange('agrogood_business_line_id')
     def _onchange_agrogood_business_line_id(self):
         """Propone la tarifa de la linea comercial, sin imponerla.

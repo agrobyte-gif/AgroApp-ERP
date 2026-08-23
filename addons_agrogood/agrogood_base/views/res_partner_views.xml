@@ -9,7 +9,12 @@
             <field name="category_id" position="after">
                 <field name="agrogood_business_line_id"
                        groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+                <field name="agrogood_vat_pending" invisible="1"/>
             </field>
+            <div name="button_box" position="before">
+                <widget name="web_ribbon" title="RUT pendiente" bg_color="text-bg-warning"
+                        invisible="not agrogood_vat_pending"/>
+            </div>
         </field>
     </record>
 
@@ -20,6 +25,8 @@
         <field name="arch" type="xml">
             <filter name="type_company" position="after">
                 <separator/>
+                <filter name="filter_agrogood_vat_pending" string="RUT pendiente"
+                        domain="[('agrogood_vat_pending', '=', True)]"/>
                 <filter name="groupby_agrogood_business_line" string="Linea comercial"
                         context="{'group_by': 'agrogood_business_line_id'}"/>
             </filter>

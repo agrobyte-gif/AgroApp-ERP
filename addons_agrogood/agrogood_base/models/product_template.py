@@ -21,12 +21,6 @@ class AgrogoodProductFormat(models.Model):
     name = fields.Char(required=True, translate=True)
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
-    reference_weight = fields.Float(
-        string="Peso de referencia (kg)",
-        digits='Stock Weight',
-        help="Peso aproximado del bulto. Solo orientativo, para estimar cuantos "
-             "bultos preparar. Nunca se usa para facturar.",
-    )
     note = fields.Char(string="Observacion")
 
     _sql_constraints = [
@@ -47,6 +41,14 @@ class ProductTemplate(models.Model):
         string="Formato de presentacion",
         help="Como se presenta el producto en bodega. Informativo: no interviene "
              "en el calculo de stock ni de precio.",
+    )
+    agrogood_reference_weight = fields.Float(
+        string="Peso de referencia del bulto (kg)",
+        digits='Stock Weight',
+        help="Peso aproximado de un bulto de este producto. Es del producto y no "
+             "del formato, porque una caja de tomate y una de lechuga no pesan lo "
+             "mismo. Solo orientativo, para estimar cuantos bultos preparar: "
+             "nunca se usa para facturar.",
     )
     agrogood_weight_tolerance = fields.Float(
         string="Tolerancia de peso (%)",

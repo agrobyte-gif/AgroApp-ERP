@@ -10,6 +10,8 @@
                 <group string="Agrogood" name="agrogood">
                     <field name="agrogood_is_variable_weight"/>
                     <field name="agrogood_format_id"/>
+                    <field name="agrogood_reference_weight"
+                           invisible="not agrogood_format_id"/>
                     <field name="agrogood_weight_tolerance"
                            invisible="not agrogood_is_variable_weight"/>
                     <div colspan="2" class="text-muted"
@@ -29,7 +31,6 @@
             <list string="Formatos de presentacion" editable="bottom">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="reference_weight"/>
                 <field name="note"/>
             </list>
         </field>
