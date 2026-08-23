@@ -175,8 +175,13 @@ Write-Ok "Copia de seguridad en odoo.conf.bak"
 $conf = Get-Content $ConfFile -Raw
 $conf = [regex]::Replace($conf, '(?m)^admin_passwd\s*=.*$', "admin_passwd = $MasterPassword")
 $conf = [regex]::Replace($conf, '(?m)^db_password\s*=.*$',  "db_password = $OdooPassword")
-Set-Content -Path $ConfFile -Value $conf -Encoding UTF8 -NoNewline
-Write-Ok "admin_passwd y db_password escritos"
+
+# UTF-8 SIN BOM, obligatorio. Set-Content -Encoding UTF8 en PowerShell 5.1
+# escribe el BOM, y el configparser de Python lo lee como texto previo a
+# [options], de modo que Odoo no reconoce la seccion y no arranca.
+$sinBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($ConfFile, $conf, $sinBom)
+Write-Ok "admin_passwd y db_password escritos (UTF-8 sin BOM)"
 
 # --- 7. Verificacion final ---------------------------------------------------
 Write-Paso "Verificando que Odoo podra conectarse"
