@@ -9,10 +9,16 @@
 $RAIZ = "C:\dev\agrogood"
 
 # Si ya hay uno corriendo, no se arranca otro: dos procesos sobre la misma base
-# se pisan al escribir.
-$vivo = Get-Process python -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -like "*agrogood*" }
-if ($vivo) { Write-Host "Agroapp ya esta corriendo (PID $($vivo.Id -join ','))"; exit 0 }
+# se pisan al escribir y duplican las acciones programadas.
+#
+# Se mira la LINEA DE COMANDOS, no la ruta del ejecutable. La version anterior
+# comparaba $_.Path contra "*agrogood*", y eso solo reconoce al Odoo lanzado
+# con el Python del entorno virtual. Un Odoo arrancado a mano con el Python del
+# sistema ("C:\Program Files\Python312\python.exe") pasaba desapercibido, y la
+# tarea programada levantaba un segundo servidor encima. Ocurrio de verdad.
+$vivo = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" |
+        Where-Object { $_.CommandLine -like "*odoo-bin*" }
+if ($vivo) { Write-Host "Agroapp ya esta corriendo (PID $($vivo.ProcessId -join ','))"; exit 0 }
 
 # python.exe y NO pythonw.exe. pythonw no tiene flujos de salida, y Odoo
 # escribe en ellos al arrancar: el proceso moria al instante sin dejar rastro
@@ -21,7 +27,7 @@ Start-Process -FilePath "$RAIZ\.venv\Scripts\python.exe" `
     -ArgumentList "$RAIZ\odoo-18.0\odoo-bin", "-c", "$RAIZ\config\odoo.conf", "-d", "agrogood_dev" `
     -WorkingDirectory $RAIZ -WindowStyle Hidden
 
-# Odoo tarda en cargar los 93 modulos; se espera hasta 60 s comprobando.
+# Odoo tarda en cargar sus modulos; se espera hasta 60 s comprobando.
 $arriba = $false
 for ($i = 0; $i -lt 20; $i++) {
     Start-Sleep -Seconds 3

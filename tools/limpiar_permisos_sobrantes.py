@@ -43,12 +43,12 @@ APLICAR = os.environ.get("AGROGOOD_PERMISOS") == "limpiar"
 #
 # El orden importa: primero el administrador y luego el usuario. Al reves, Odoo
 # vuelve a poner el de usuario porque el de administrador lo implica.
-RETIRAR_A_TODOS = [
-    ("Punto de venta", [
-        "point_of_sale.group_pos_manager",
-        "point_of_sale.group_pos_user",
-    ], "Agrogood reparte, no vende en mostrador. Cero sesiones de caja."),
-]
+# Punto de Venta estuvo aqui: los nueve usuarios eran administradores de una
+# caja que no existe. Se confirmo que Agrogood no vende en mostrador y el
+# modulo se desinstalo entero (nueve modulos, cero datos que perder), asi que
+# ya no hay grupos que retirar. Si algun dia abren local y se reinstala,
+# volveran a aparecer y habra que anadirlo de nuevo aqui.
+RETIRAR_A_TODOS = []
 
 # De Gastos se conserva un aprobador: si algun dia reembolsan combustible o
 # peajes a los conductores, tiene que haber alguien que lo apruebe. Lo que no
