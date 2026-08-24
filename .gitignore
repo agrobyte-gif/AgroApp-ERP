@@ -28,3 +28,8 @@ movil/android/local.properties
 movil/android/capacitor-cordova-android-plugins/
 movil/www/logo.png
 *.apk
+
+# Despliegue: secretos y respaldos nunca se versionan.
+despliegue/.env
+despliegue/respaldos/
+despliegue/bitacora/

@@ -1,0 +1,78 @@
+# Agroapp en produccion.
+#
+# Tres contenedores y nada mas: base de datos, Odoo y un proxy que resuelve el
+# HTTPS. Deliberadamente simple, porque el equipo que va a mantener esto no es
+# un equipo de infraestructura.
+#
+#   docker compose up -d          arrancar
+#   docker compose logs -f odoo   ver que pasa
+#   docker compose down           parar
+#
+# Los secretos van en el archivo .env, que NO se versiona. Ver .env.ejemplo.
+
+services:
+
+  db:
+    image: postgres:16
+    container_name: agroapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+      # Odoo hace muchas consultas cortas; esto evita que Postgres pierda
+      # tiempo escribiendo estadisticas que no usa.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db-datos:/var/lib/postgresql/data
+      - ./respaldos:/respaldos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # La base NO expone puerto al exterior. Solo Odoo la alcanza, por la red
+    # interna de Docker. Es la diferencia entre una base privada y una base
+    # que cualquiera puede intentar abrir desde Internet.
+
+  odoo:
+    image: odoo:18
+    container_name: agroapp-odoo
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      USER: ${DB_USER}
+      PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - odoo-datos:/var/lib/odoo
+      - ../addons_agrogood:/mnt/extra-addons:ro
+      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./bitacora:/var/log/odoo
+    # Tampoco expone puerto: todo entra por Caddy, que es quien tiene el
+    # certificado. Asi nadie puede saltarse el HTTPS.
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: agroapp-caddy
+    restart: unless-stopped
+    depends_on:
+      - odoo
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+      EMAIL_ADMIN: ${EMAIL_ADMIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-datos:/data
+      - caddy-config:/config
+
+volumes:
+  db-datos:
+  odoo-datos:
+  caddy-datos:
+  caddy-config:

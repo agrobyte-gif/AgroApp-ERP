@@ -1,0 +1,55 @@
+# Caddy resuelve el HTTPS solo: pide el certificado a Let's Encrypt al
+# arrancar y lo renueva sin que nadie tenga que acordarse. Es la razon de
+# usarlo en lugar de nginx: un certificado caducado tumba el sistema, y
+# renovarlo a mano es justo el tipo de tarea que se olvida.
+
+{$DOMINIO} {
+    tls {$EMAIL_ADMIN}
+
+    encode gzip zstd
+
+    # El canal de tiempo real de Odoo necesita conexiones largas y va por su
+    # propio proceso. Sin esta regla, el chat y las notificaciones no llegan.
+    @websocket {
+        path /websocket
+        header Connection *Upgrade*
+        header Upgrade    websocket
+    }
+    handle @websocket {
+        reverse_proxy odoo:8072
+    }
+
+    handle {
+        reverse_proxy odoo:8069 {
+            # Odoo necesita saber que viene por HTTPS para generar bien los
+            # enlaces de los correos y los documentos.
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # El gestor de bases de datos queda cerrado desde fuera. Crear o borrar
+    # bases se hace entrando al servidor, no desde Internet.
+    handle /web/database/* {
+        respond "No disponible" 403
+    }
+
+    request_body {
+        # Las fotos de entrega que suben los conductores pueden pesar.
+        max_size 25MB
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        -Server
+    }
+
+    log {
+        output file /data/acceso.log {
+            roll_size 20MiB
+            roll_keep 5
+        }
+    }
+}
