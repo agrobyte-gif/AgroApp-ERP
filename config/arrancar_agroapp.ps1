@@ -14,12 +14,24 @@ $vivo = Get-Process python -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -like "*agrogood*" }
 if ($vivo) { Write-Host "Agroapp ya esta corriendo (PID $($vivo.Id -join ','))"; exit 0 }
 
-Start-Process -FilePath "$RAIZ\.venv\Scripts\pythonw.exe" `
+# python.exe y NO pythonw.exe. pythonw no tiene flujos de salida, y Odoo
+# escribe en ellos al arrancar: el proceso moria al instante sin dejar rastro
+# ni en el log. Con -WindowStyle Hidden la consola existe pero no se ve.
+Start-Process -FilePath "$RAIZ\.venv\Scripts\python.exe" `
     -ArgumentList "$RAIZ\odoo-18.0\odoo-bin", "-c", "$RAIZ\config\odoo.conf", "-d", "agrogood_dev" `
     -WorkingDirectory $RAIZ -WindowStyle Hidden
 
-Start-Sleep -Seconds 12
+# Odoo tarda en cargar los 93 modulos; se espera hasta 60 s comprobando.
+$arriba = $false
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Seconds 3
+    try {
+        Invoke-WebRequest -Uri "http://localhost:8069/web/login" -TimeoutSec 4 -UseBasicParsing | Out-Null
+        $arriba = $true; break
+    } catch { }
+}
 try {
+    if (-not $arriba) { throw "sin respuesta tras 60 segundos" }
     Invoke-WebRequest -Uri "http://localhost:8069/web/login" -TimeoutSec 10 -UseBasicParsing | Out-Null
     $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
         (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).Name -eq "Wi-Fi"
