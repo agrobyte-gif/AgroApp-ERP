@@ -23,7 +23,9 @@ import unicodedata
 
 import openpyxl
 
-RUTA = r"C:\dev\agrogood\DATOS CLIENTES RUT.xlsx"
+RUTA = r"C:\dev\DATOS CLIENTES RUT.xlsx"
+# La planilla vive FUERA del repositorio a proposito: son datos reales de
+# clientes, no codigo, y en Git quedarian en el historial para siempre.
 ESCRIBIR = os.environ.get("AGROGOOD_RUT") == "escribir"
 
 # Por encima de este parecido se aplica solo; entre el minimo y este, se revisa.
