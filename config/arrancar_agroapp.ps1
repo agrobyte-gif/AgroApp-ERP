@@ -44,7 +44,14 @@ try {
     }).IPAddress
     Write-Host "Agroapp arriba."
     Write-Host "  Escritorio : http://localhost:8069"
-    if ($ip) { Write-Host "  Telefonos  : http://${ip}:8069/agrogood/app" }
+    # El nombre del equipo va PRIMERO y la IP como respaldo. El router reparte
+    # las direcciones por DHCP y las cambia solas: el equipo paso de
+    # 192.168.1.5 a 192.168.0.19 en un mismo dia, y con ello dejaron de
+    # funcionar todos los telefonos a la vez sin que nadie hubiera tocado nada.
+    # Windows publica su nombre por mDNS y Android lo resuelve, asi que
+    # AGROGOOD.local sigue valiendo aunque cambie la IP.
+    Write-Host "  Telefonos  : http://$env:COMPUTERNAME.local:8069/agrogood/app"
+    if ($ip) { Write-Host "  Si el nombre falla, por IP: http://${ip}:8069/agrogood/app" }
 } catch {
     Write-Host "Arranco pero aun no responde. Revisa C:\dev\agrogood\logs\odoo.log"
 }
