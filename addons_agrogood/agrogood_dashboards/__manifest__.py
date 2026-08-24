@@ -27,6 +27,9 @@ responder a la pregunta mas basica de Direccion: cuanto vende cada linea.
         'agrogood_logistics',
         'agrogood_procurement_board',
     ],
-    'data': ['views/dashboard_views.xml'],
+    'data': [
+        'views/dashboard_views.xml',
+        'views/completar_rut_views.xml',
+    ],
     'installable': True,
 }

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Pantalla para completar los RUT que faltan.
+
+        Es una lista editable a proposito: escribir 60 RUT abriendo y cerrando
+        60 fichas es trabajo que nadie termina. Aqui se teclea uno debajo de
+        otro, con el telefono y la direccion delante para reconocer al cliente.
+
+        La validacion del digito verificador la hace Odoo al guardar, asi que
+        un RUT mal tecleado se rechaza en el momento y no meses despues en una
+        factura.
+    -->
+    <record id="partner_view_list_completar_rut" model="ir.ui.view">
+        <field name="name">res.partner.list.completar.rut</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <list string="Completar RUT" editable="bottom" create="false" delete="false">
+                <field name="name" readonly="1"/>
+                <field name="city" readonly="1" optional="show"/>
+                <field name="phone" readonly="1" widget="phone" optional="show"/>
+                <field name="street" readonly="1" optional="hide"/>
+                <field name="agrogood_business_line_id" readonly="1" optional="show"/>
+                <field name="l10n_latam_identification_type_id"
+                       options="{'no_create': True, 'no_open': True}"/>
+                <field name="vat" placeholder="76123456-7"/>
+                <field name="l10n_cl_sii_taxpayer_type"/>
+                <field name="agrogood_billing_blocked" widget="boolean_toggle" readonly="1"
+                       string="Falta algo"/>
+                <field name="agrogood_billing_blocker" readonly="1" optional="show"
+                       string="Que falta"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="partner_action_completar_rut" model="ir.actions.act_window">
+        <field name="name">Completar RUT de clientes</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="partner_view_list_completar_rut"/>
+        <field name="domain">[('agrogood_business_line_id','!=',False),
+                              ('parent_id','=',False),
+                              ('agrogood_billing_blocked','=',True)]</field>
+        <field name="context">{'default_l10n_latam_identification_type_id':
+                               ref('l10n_cl.it_RUT'),
+                               'default_l10n_cl_sii_taxpayer_type': '1'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todos los clientes pueden facturarse</p>
+            <p>Aqui aparecen los clientes a los que todavia falta el RUT o el tipo
+               de contribuyente. Pueden recibir pedidos y despachos con normalidad;
+               lo unico que no se les puede emitir es factura.</p>
+            <p>Al escribir un RUT, el sistema comprueba el digito verificador y
+               rechaza el que no cuadre.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_completar_rut" name="Completar RUT de clientes"
+              parent="agrogood_dashboards.menu_dash_ventas"
+              action="partner_action_completar_rut" sequence="60"/>
+
+</odoo>
