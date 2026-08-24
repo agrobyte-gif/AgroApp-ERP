@@ -33,3 +33,10 @@ movil/www/logo.png
 despliegue/.env
 despliegue/respaldos/
 despliegue/bitacora/
+
+# Datos reales de clientes. Son datos de origen, no codigo: viven en el disco
+# y en OneDrive. Meterlos en Git los dejaria en el historial para siempre,
+# aunque se borraran despues.
+DATOS CLIENTES RUT.xlsx
+RUT por completar.xlsx
+*.xlsx
