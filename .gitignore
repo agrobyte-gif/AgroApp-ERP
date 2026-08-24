@@ -40,3 +40,6 @@ despliegue/bitacora/
 DATOS CLIENTES RUT.xlsx
 RUT por completar.xlsx
 *.xlsx
+
+# Respaldos locales: contienen la base completa con datos reales de clientes.
+respaldos/
