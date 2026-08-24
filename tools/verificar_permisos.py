@@ -202,6 +202,14 @@ else:
         ("Crear factura",      "sebastian.ventas",  "+", "Ventas factura"),
         ("Crear factura",      "felipe",           "-", "Logistica no factura"),
         ("Crear usuarios",     "sebastian.ventas",  "-", "Solo el rol tecnico gestiona usuarios"),
+        # Desde que la valoracion de inventario es automatica, cada movimiento
+        # de stock genera un asiento con el costo real. Ver contabilidad hoy es
+        # ver a que precio se compra y que margen deja cada cliente, asi que
+        # deja de ser un permiso inofensivo.
+        ("Ver contabilidad",   "matias",           "-", "Bodega no ve costos ni margenes"),
+        ("Ver contabilidad",   "felipe",           "-", "Logistica no ve costos ni margenes"),
+        ("Ver contabilidad",   "sebastian.ventas",  "+", "Ventas factura, necesita verla"),
+        ("Ver contabilidad",   "johan",            "+", "Compras ve las facturas de proveedor"),
     ]
 
     print("\n" + "=" * 78)
@@ -216,7 +224,32 @@ else:
         marca = "OK  " if ok else "FALLA"
         print(f"  {marca} {etiqueta:<20} {login:<20} esperado={esperado} real={real}   {motivo}")
 
+    # ------------------------------------------------------------------
+    # El molde del que nacen los usuarios nuevos
+    # ------------------------------------------------------------------
+    # Odoo anade el grupo de administrador de cada aplicacion al usuario
+    # plantilla al instalarla. El efecto no se ve ese dia: se ve el dia que
+    # se da de alta a un conductor y nace pudiendo cambiar precios. Se
+    # comprueba aqui porque es justo el permiso que nadie audita, ya que
+    # nadie llego a pedirlo.
+    plantilla = env.ref("base.default_user", raise_if_not_found=False)
+    interno = env.ref("base.group_user")
+    heredados = ((plantilla.groups_id - interno - interno.implied_ids)
+                 if plantilla else env["res.groups"])
+    limpio = not heredados
+    if not limpio:
+        fallos += 1
+    print(f"  {'OK  ' if limpio else 'FALLA'} {'Usuario plantilla':<20} "
+          f"{'(usuarios nuevos)':<20} esperado=0 real={len(heredados)}   "
+          f"Un usuario nuevo debe nacer sin permisos heredados")
+    for g in sorted(heredados, key=lambda x: x.full_name)[:8]:
+        print(f"         hereda: {g.full_name}")
+    if not limpio:
+        print("         Corregir con AGROGOOD_PERMISOS=limpiar sobre "
+              "tools/limpiar_permisos_sobrantes.py")
+
+    total = len(ESPERADO) + 1
     print("\n" + "=" * 78)
-    print(f"RESULTADO: {len(ESPERADO) - fallos}/{len(ESPERADO)} comprobaciones correctas"
+    print(f"RESULTADO: {total - fallos}/{total} comprobaciones correctas"
           + ("" if fallos else "   -  matriz probada"))
     print("=" * 78)

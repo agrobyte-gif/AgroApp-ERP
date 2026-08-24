@@ -12,7 +12,7 @@ inventario → picking → ruta → entrega → facturación → seguimiento com
 
 | Carpeta | Qué contiene |
 |---|---|
-| `addons_agrogood/` | Los once módulos propios |
+| `addons_agrogood/` | Los trece módulos propios |
 | `movil/` | App Android (Capacitor) para conductores |
 | `despliegue/` | Docker Compose, HTTPS y respaldos para producción |
 | `tools/` | Importación, verificación y pruebas |
@@ -65,17 +65,52 @@ Ver [`despliegue/README.md`](despliegue/README.md).
 ## Herramientas
 
 ```bash
-# Prueba integral: los 15 pasos del criterio de aceptacion, con rollback
+# Prueba integral: el criterio de aceptacion completo, con rollback al final
 odoo-bin shell -c config/odoo.conf -d agrogood_dev --no-http < tools/prueba_integral.py
 
 # Matriz de permisos, ejecutando cada operacion con cada usuario real
 odoo-bin shell -c config/odoo.conf -d agrogood_dev --no-http < tools/verificar_permisos.py
 ```
 
-Ambas se ejecutan tras cualquier cambio. Las demás herramientas
-(`importar_datos_maestros.py`, `cruzar_ruts.py`, `configurar_perecibles.py`,
-`limpiar_datos_prueba.py`) informan por defecto y solo escriben cuando se les
-pasa una variable de entorno explícita.
+Ambas se ejecutan tras cualquier cambio. Las demás herramientas informan por
+defecto y solo escriben cuando se les pasa una variable de entorno explícita:
+
+| Herramienta | Para qué |
+|---|---|
+| `importar_datos_maestros.py` | Cargar clientes y productos desde planilla |
+| `cruzar_ruts.py` | Completar RUT cruzando con la base de Agrogood |
+| `configurar_perecibles.py` | Caducidad, lotes y FEFO |
+| `configurar_costos_y_asistencia.py` | Costos de traída y fichas de empleado |
+| `configurar_apps_nuevas.py` | Datos mínimos de las aplicaciones añadidas |
+| `limpiar_permisos_sobrantes.py` | **Obligatoria tras instalar cualquier aplicación** |
+| `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
+
+---
+
+## Instalar una aplicación de Odoo
+
+Instalar no son dos pasos, son tres, y el tercero se olvida siempre:
+
+```bash
+# 1. Instalar
+odoo-bin -c config/odoo.conf -d agrogood_dev -i nombre_del_modulo --stop-after-init
+
+# 2. Dejarla utilizable (datos mínimos, si le corresponde)
+AGROGOOD_APPS=si odoo-bin shell ... < tools/configurar_apps_nuevas.py
+
+# 3. Devolver los permisos a su sitio
+AGROGOOD_PERMISOS=limpiar odoo-bin shell ... < tools/limpiar_permisos_sobrantes.py
+```
+
+El tercero no es opcional. Odoo añade el grupo de **administrador** de cada
+aplicación al usuario plantilla del que nacen los usuarios nuevos. Instalar seis
+aplicaciones dejó la plantilla con administrador de Ventas, Inventario,
+Proyectos, Punto de Venta, Gastos y Vacaciones: el siguiente conductor dado de
+alta habría nacido pudiendo cambiar precios y ajustar stock.
+
+El efecto no se ve el día de la instalación. Se ve semanas después, y para
+entonces nadie relaciona una cosa con la otra. `verificar_permisos.py` lo
+comprueba y falla si vuelve a ocurrir.
 
 ---
 
