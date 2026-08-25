@@ -20,7 +20,11 @@
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <title>Seguimiento de rutas</title>
                 <link rel="stylesheet" href="/agrogood_tracking/static/src/lib/leaflet.css"/>
-                <link rel="stylesheet" href="/agrogood_tracking/static/src/css/mapa.css"/>
+                <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                    'agrogood_tracking/static/src/css/mapa.css',
+                    'agrogood_tracking/static/src/js/mapa.js')"/>
+                <link rel="stylesheet"
+                      t-attf-href="/agrogood_tracking/static/src/css/mapa.css?v=#{v}"/>
                 <script src="/agrogood_tracking/static/src/lib/leaflet.js"/>
             </head>
             <body>
@@ -64,7 +68,7 @@
                     <div id="mapa" class="mp-mapa"/>
                 </div>
                 <script type="application/json" id="mp-datos"><t t-esc="datos_json"/></script>
-                <script src="/agrogood_tracking/static/src/js/mapa.js"/>
+                <script t-attf-src="/agrogood_tracking/static/src/js/mapa.js?v=#{v}"/>
             </body>
         </html>
     </template>

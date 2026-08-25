@@ -30,3 +30,36 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Ro
 .mp-barra-fill{height:100%;background:var(--ag-500)}
 .leaflet-popup-content{font-family:inherit;font-size:14px;margin:10px 12px}
 .leaflet-popup-content b{color:var(--ag-800)}
+
+/* ---------------------------------------------------------------------
+   Telefono y tablet.
+
+   Faltaba por completo: la lista estaba fijada a 310px con `flex:0 0 310px`,
+   asi que en un telefono de 360px se comia la pantalla y al mapa le quedaban
+   cincuenta pixeles. Quien lo abriera desde el movil veia una franja verde y
+   una columna casi vacia, que es indistinguible de una pagina rota.
+
+   En vertical se apilan: primero el mapa, que es a lo que se entra, y debajo
+   la lista de rutas.
+   --------------------------------------------------------------------- */
+@media (max-width: 820px) {
+  .mp-top{flex-wrap:wrap;gap:4px 12px;padding:10px 14px}
+  .mp-auto{margin-left:0;flex-basis:100%}
+  .mp-wrap{flex-direction:column;height:auto;min-height:calc(100% - 46px)}
+  .mp-mapa{flex:none;height:58vh;min-height:260px;order:1}
+  .mp-lista{width:auto;flex:none;order:2;max-height:none;
+            border-right:0;border-top:1px solid var(--linea)}
+  .mp-ruta{padding:14px}
+}
+
+/* Cuando no hay rutas el recuadro del mapa queda liso, y un rectangulo vacio
+   que ocupa la pantalla se lee como un fallo. Este aviso deja claro que la
+   pagina funciona y que simplemente no hay nada que seguir todavia. */
+.mp-mapa{position:relative}
+.mp-mapa[data-vacio="1"]::after{
+  content:"Sin rutas en curso. El mapa se llenara cuando un conductor inicie su ruta.";
+  position:absolute;inset:auto 16px 16px 16px;z-index:500;
+  background:rgba(255,255,255,.94);border:1px solid var(--linea);border-radius:9px;
+  padding:10px 14px;font-size:13px;color:var(--tinta-2);text-align:center;
+  pointer-events:none;
+}

@@ -73,6 +73,13 @@
 
     pintar(datos.rutas || []);
 
+    // Marca el recuadro cuando no hay nada que pintar, para que el CSS pueda
+    // decirlo encima del mapa. Un mapa vacio sin explicacion parece averiado.
+    function marcarVacio(rutas) {
+        document.getElementById("mapa").dataset.vacio = rutas.length ? "0" : "1";
+    }
+    marcarVacio(datos.rutas || []);
+
     document.querySelectorAll(".mp-ruta").forEach((el) => {
         el.addEventListener("click", () => {
             const r = (datos.rutas || []).find((x) => String(x.id) === el.dataset.ruta);
@@ -88,7 +95,10 @@
                 body: JSON.stringify({jsonrpc: "2.0", method: "call", params: {}}),
             });
             const d = await res.json();
-            if (d.result && d.result.rutas) pintar(d.result.rutas);
+            if (d.result && d.result.rutas) {
+                pintar(d.result.rutas);
+                marcarVacio(d.result.rutas);
+            }
         } catch (e) { /* sin conexion: se mantiene lo ultimo pintado */ }
     }
     setInterval(refrescar, 30000);

@@ -12,8 +12,17 @@
                 <meta name="theme-color" content="#15653B"/>
                 <title><t t-esc="titulo or 'Agroapp'"/></title>
                 <link rel="manifest" href="/agrogood_pwa/static/manifest.webmanifest"/>
-                <link rel="stylesheet" href="/agrogood_pwa/static/src/css/pwa.css"/>
-                <script defer="defer" src="/agrogood_pwa/static/src/js/pwa.js"/>
+                <!-- La marca `?v=` no es un adorno: sin ella Odoo sirve estos
+                     archivos con siete dias de cache y un telefono se queda con
+                     la version rota hasta la semana siguiente. Ver el modelo
+                     agrogood.estaticos. -->
+                <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                    'agrogood_pwa/static/src/css/pwa.css',
+                    'agrogood_pwa/static/src/js/pwa.js')"/>
+                <link rel="stylesheet"
+                      t-attf-href="/agrogood_pwa/static/src/css/pwa.css?v=#{v}"/>
+                <script defer="defer"
+                        t-attf-src="/agrogood_pwa/static/src/js/pwa.js?v=#{v}"/>
             </head>
             <body>
                 <header class="ag-top">
