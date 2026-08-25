@@ -6,12 +6,70 @@
  */
 (function () {
     "use strict";
+    const caja = document.getElementById("mapa");
+
+    /* Un recuadro gris sin explicacion es el peor mensaje de error posible:
+       no se distingue de una pagina rota, y quien lo ve no puede hacer nada.
+       Este aviso dice que pasa y que comprobar. */
+    function avisar(texto) {
+        let el = document.getElementById("mp-aviso");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "mp-aviso";
+            el.className = "mp-aviso";
+            caja.appendChild(el);
+        }
+        el.textContent = texto;
+        el.style.display = texto ? "block" : "none";
+    }
+
+    if (typeof L === "undefined") {
+        avisar("No se pudo cargar la libreria del mapa. Recarga la pagina; " +
+               "si sigue igual, avisa al Administrador Tecnico.");
+        return;
+    }
+
     const datos = JSON.parse(document.getElementById("mp-datos").textContent || "{}");
     const mapa = L.map("mapa");
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+
+    const mosaicos = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap',
-    }).addTo(mapa);
+    });
+
+    /* Las imagenes del mapa son lo unico de esta pagina que viene de fuera:
+       Leaflet lo servimos nosotros, pero los mosaicos son de OpenStreetMap.
+       Si el equipo no tiene salida a internet -o la red del almacen la
+       filtra-, Leaflet se queda en silencio y deja el recuadro vacio. */
+    let hayMosaicos = false;
+    mosaicos.on("tileload", function () {
+        hayMosaicos = true;
+        const el = document.getElementById("mp-aviso");
+        if (el && el.dataset.motivo === "red") avisar("");
+    });
+    mosaicos.on("tileerror", function () {
+        if (hayMosaicos) return;               // un mosaico suelto no es un fallo
+        const el = document.getElementById("mp-aviso");
+        avisar("No se pueden cargar las imagenes del mapa. Este equipo necesita " +
+               "salida a internet para verlas. Las rutas y las entregas siguen " +
+               "funcionando igual.");
+        (el || document.getElementById("mp-aviso")).dataset.motivo = "red";
+    });
+    mosaicos.addTo(mapa);
+
+    /* Leaflet mide el recuadro al arrancar. Si en ese instante el navegador
+       todavia no ha terminado de repartir el espacio -pasa con contenedores
+       flexibles, que es justo lo que usa esta pagina-, lo mide como cero, no
+       pide ningun mosaico y deja el hueco en blanco para siempre: nada vuelve
+       a mirarlo. Recalcularlo cuando la pagina termina de cargar, y en cada
+       cambio de tamano, cuesta nada y evita ese blanco. */
+    function remedir() {
+        if (mapa) mapa.invalidateSize();
+    }
+    window.addEventListener("load", remedir);
+    window.addEventListener("resize", remedir);
+    window.addEventListener("orientationchange", remedir);
+    setTimeout(remedir, 300);
 
     // Iconos propios: no usamos los de Leaflet porque sus rutas de imagen
     // asumen una estructura de carpetas que aqui no existe.
