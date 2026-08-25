@@ -114,5 +114,119 @@
         <field name="perm_unlink" eval="False"/>
     </record>
 
+    <!--
+        ============ QUIEN MANDA VE TODO ============
+
+        Las reglas de arriba RESTRINGEN, y en Odoo las reglas de los distintos
+        grupos de un usuario se combinan con O. Eso tiene una consecuencia que
+        no se ve al escribirlas: si a un Jefe de Logistica se le anade tambien
+        el rol de Picker, su unica regla sobre albaranes pasa a ser la del
+        Picker, y queda viendo solo los que tiene asignados a su nombre. Es
+        decir, sumar un rol le QUITA visibilidad.
+
+        Ocurrio de verdad, y en el peor sitio: Felipe y Matias tenian ambos el
+        rol de Picker y no veian ni un albaran ni un cliente. Desde fuera se ve
+        como un sistema vacio, no como un problema de permisos, y nadie lo
+        relaciona con haberle marcado una casilla de mas a alguien hace un mes.
+
+        En una empresa de seis personas los roles se acumulan por necesidad: el
+        encargado de bodega prepara pedidos cuando hace falta. El sistema tiene
+        que aguantarlo.
+
+        Estas reglas no conceden nada por si solas -eso lo deciden los ACL-:
+        solo devuelven el alcance completo a quien tiene un rol de mando,
+        aunque ademas prepare o conduzca.
+    -->
+
+    <record id="rule_mando_pickings" model="ir.rule">
+        <field name="name">Mando: todos los albaranes</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_mando_moves" model="ir.rule">
+        <field name="name">Mando: todos los lineas de albaran</field>
+        <field name="model_id" ref="stock.model_stock_move"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_mando_partners" model="ir.rule">
+        <field name="name">Mando: todos los clientes</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_mando_sessions" model="ir.rule">
+        <field name="name">Mando: todos los preparaciones</field>
+        <field name="model_id" ref="agrogood_picking_ops.model_agrogood_picking_session"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_mando_routes" model="ir.rule">
+        <field name="name">Mando: todos los rutas</field>
+        <field name="model_id" ref="agrogood_logistics.model_agrogood_route"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_mando_stops" model="ir.rule">
+        <field name="name">Mando: todos los paradas</field>
+        <field name="model_id" ref="agrogood_logistics.model_agrogood_route_stop"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_warehouse')),
+            Command.link(ref('agrogood_base.group_agrogood_logistics_manager')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+            Command.link(ref('agrogood_base.group_agrogood_technical_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
     </data>
 </odoo>

@@ -225,6 +225,43 @@ else:
         print(f"  {marca} {etiqueta:<20} {login:<20} esperado={esperado} real={real}   {motivo}")
 
     # ------------------------------------------------------------------
+    # Acumular roles no puede QUITAR visibilidad
+    # ------------------------------------------------------------------
+    # Los roles de Agrogood se encadenan: Jefe de Logistica incluye a
+    # Encargado de Bodega, que incluye a Picker. Las reglas de registro de
+    # los grupos se combinan con O, de modo que una regla restrictiva en el
+    # rol de abajo puede acabar siendo la unica que aplica y dejar al jefe
+    # viendo solo lo suyo. Paso: Felipe y Matias no veian ni un albaran ni
+    # un cliente, y desde fuera parecia un sistema vacio.
+    Pick = env["stock.picking"]
+    Socio = env["res.partner"]
+    dom_alb = [("state", "not in", ("done", "cancel"))]
+    dom_cli = [("agrogood_business_line_id", "!=", False)]
+    total_alb = Pick.search_count(dom_alb)
+    total_cli = Socio.search_count(dom_cli)
+
+    def alcance(login, dominio, modelo):
+        u = env["res.users"].search([("login", "like", login)], limit=1)
+        if not u:
+            return None
+        return modelo.with_user(u).search_count(dominio)
+
+    ALCANCE = [
+        ("felipe", Pick, dom_alb, total_alb, "El Jefe de Logistica ve todos los albaranes"),
+        ("felipe", Socio, dom_cli, total_cli, "El Jefe de Logistica ve toda la cartera"),
+        ("matias", Pick, dom_alb, total_alb, "Bodega ve todos los albaranes"),
+        ("picker.demo", Pick, dom_alb, 0, "El Picker solo ve los suyos, y no tiene"),
+        ("chofer.demo", Pick, dom_alb, 0, "El Conductor solo ve los suyos, y no tiene"),
+    ]
+    for login, modelo, dominio, esperado, motivo in ALCANCE:
+        real = alcance(login, dominio, modelo)
+        ok = real == esperado
+        if not ok:
+            fallos += 1
+        print(f"  {'OK  ' if ok else 'FALLA'} {'Alcance':<20} {login:<20} "
+              f"esperado={esperado} real={real}   {motivo}")
+
+    # ------------------------------------------------------------------
     # El molde del que nacen los usuarios nuevos
     # ------------------------------------------------------------------
     # Odoo anade el grupo de administrador de cada aplicacion al usuario
@@ -248,7 +285,7 @@ else:
         print("         Corregir con AGROGOOD_PERMISOS=limpiar sobre "
               "tools/limpiar_permisos_sobrantes.py")
 
-    total = len(ESPERADO) + 1
+    total = len(ESPERADO) + 1 + len(ALCANCE)
     print("\n" + "=" * 78)
     print(f"RESULTADO: {total - fallos}/{total} comprobaciones correctas"
           + ("" if fallos else "   -  matriz probada"))
