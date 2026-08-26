@@ -284,6 +284,54 @@ pedido.action_agrogood_close()
 pedido.invalidate_recordset()
 paso(17, "El pedido se cierra", pedido.agrogood_state == 'closed', E(pedido))
 
+# --- 18. Los avisos de pantalla ---------------------------------------------
+# Los metodos `onchange` SOLO se ejecutan desde el navegador: ninguna prueba de
+# las de arriba los toca, porque todas trabajan contra el ORM. Un campo
+# renombrado deja el aviso apuntando a un nombre que ya no existe y nadie se
+# entera hasta que Ventas abre la pantalla y le revienta con un error rojo.
+# Paso de verdad: `agrogood_vat_pending` se renombro a
+# `agrogood_billing_blocked` y este aviso se quedo atras.
+#
+# Se ejecutan todos los onchange de los modulos propios sobre un registro
+# virtual. Solo se persigue AttributeError: es el sintoma exacto de una
+# referencia caduca. Cualquier otro fallo depende de los datos, no del codigo.
+rotos = []
+revisados = 0
+# Se recorren TODOS los modelos y se filtra por los onchange nuestros, en vez
+# de mantener a mano una lista de modelos. Esa lista es exactamente la misma
+# clase de error que esta prueba persigue: la primera version se dejaba fuera
+# `agrogood.price.version` -las versiones semanales de precios- y la prueba
+# habria pasado en verde ignorando un tercio de los avisos que existen.
+for _modelo in sorted(env.registry.models):
+    _M = env[_modelo]
+    # Se recorre la CLASE y no el conjunto de registros: pedirle un atributo
+    # cualquiera a un recordset vacio hace que Odoo intente leer campos y
+    # revienta antes de llegar a lo que interesa.
+    _vistos = set()
+    for _klass in type(_M).__mro__:
+        for _nombre, _f in list(vars(_klass).items()):
+            if _nombre in _vistos:
+                continue
+            if not callable(_f) or not hasattr(_f, '_onchange'):
+                continue
+            if 'agrogood' not in (getattr(_f, '__module__', '') or ''):
+                continue       # los de Odoo son cosa de Odoo
+            _vistos.add(_nombre)
+            revisados += 1
+            _vals = {}
+            if 'partner_id' in _M._fields:
+                _vals['partner_id'] = cliente.id
+            try:
+                getattr(_M.new(_vals), _nombre)()
+            except AttributeError as _e:
+                rotos.append('%s.%s -> %s' % (_modelo, _nombre, _e))
+            except Exception:
+                pass
+paso(18, 'Los avisos de pantalla no apuntan a campos que ya no existen',
+     not rotos,
+     ('%d onchange propios revisados' % revisados) if not rotos
+     else ' | '.join(rotos)[:150])
+
 # --- Resultado --------------------------------------------------------------
 print("\n" + "=" * 78)
 correctos = sum(1 for _, _, v in R if v)

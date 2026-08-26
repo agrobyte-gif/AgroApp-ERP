@@ -254,14 +254,23 @@ class SaleOrder(models.Model):
 
     @api.onchange('partner_id')
     def _onchange_partner_agrogood_warning(self):
-        """Avisa a Ventas de que a este cliente aun no se le puede facturar."""
-        if self.partner_id and self.partner_id.agrogood_vat_pending:
+        """Avisa a Ventas de que a este cliente aun no se le puede facturar.
+
+        Se lee `agrogood_billing_blocker`, que dice QUE falta, en lugar de dar
+        por supuesto que es el RUT. Hoy el unico motivo es ese, pero el punto de
+        extension existe precisamente porque cada localizacion exige datos
+        distintos, y un aviso que nombra el motivo equivocado hace perder mas
+        tiempo que no avisar.
+        """
+        if self.partner_id and self.partner_id.agrogood_billing_blocked:
             return {'warning': {
-                'title': _("Cliente sin RUT"),
+                'title': _("No se le podra facturar"),
                 'message': _(
-                    "%s no tiene RUT registrado. Puedes tomarle el pedido y "
+                    "%(cliente)s: %(motivo)s. Puedes tomarle el pedido y "
                     "despacharlo, pero no se le podra emitir factura hasta que "
                     "se complete.",
-                    self.partner_id.display_name,
+                    cliente=self.partner_id.display_name,
+                    motivo=self.partner_id.agrogood_billing_blocker or
+                           _("le faltan datos de facturacion"),
                 ),
             }}
