@@ -13,7 +13,22 @@ el escritorio, y es parte de lo que hay que ensayar: si el banco lo dejara
 hecho, el ensayo se saltaria justo el paso donde Logistica decide quien prepara
 que.
 
-Por defecto informa. Escribe con AGROGOOD_BANCO=si.
+Dos modos de escritura:
+
+    AGROGOOD_BANCO=si       borra los restos y monta tres pedidos nuevos.
+    AGROGOOD_BANCO=vaciar   solo borra, y deja el stock a cero.
+
+El modo `vaciar` sirve para construir el flujo a mano de punta a punta: se
+empieza sin mercaderia, de modo que el primer pedido genera faltante, el
+faltante llega a Compras, Compras compra, Bodega recibe y solo entonces hay
+algo que preparar. Es el recorrido completo, incluida la parte de
+aprovisionamiento que el modo `si` se salta al dejar 200 unidades puestas.
+
+Lo que NO borra ninguno de los dos modos: clientes, productos, tarifas,
+usuarios -incluidos Picker Demo y Conductor Demo, que hacen falta para probar
+el movil-, vehiculos, empleados y el historial ya cerrado.
+
+Por defecto informa.
 """
 
 import os
@@ -21,7 +36,9 @@ from datetime import timedelta
 
 from odoo import fields
 
-APLICAR = os.environ.get("AGROGOOD_BANCO") == "si"
+MODO = os.environ.get("AGROGOOD_BANCO", "")
+APLICAR = MODO in ("si", "vaciar")
+SOLO_VACIAR = MODO == "vaciar"
 
 # Tres pedidos: suficiente para armar una ruta con varias paradas y ver como se
 # comporta la pantalla del conductor con una lista, no con un solo elemento.
@@ -30,7 +47,8 @@ LINEAS_POR_PEDIDO = 4
 
 print("=" * 78)
 print("BANCO DE PRUEBAS PARA LA PWA" +
-      ("  [MONTANDO]" if APLICAR else "  [SOLO INFORME]"))
+      ("  [VACIANDO]" if SOLO_VACIAR else
+       "  [MONTANDO]" if APLICAR else "  [SOLO INFORME]"))
 print("=" * 78)
 
 Socio = env['res.partner']
@@ -124,21 +142,83 @@ if len(clientes) < CUANTOS_PEDIDOS or not productos:
 if not APLICAR:
     print("\n" + "=" * 78)
     print("SOLO INFORME. Nada se ha modificado.")
-    print("Para montar el banco: AGROGOOD_BANCO=si")
+    print("Para montar tres pedidos : AGROGOOD_BANCO=si")
+    print("Para dejarlo todo vacio  : AGROGOOD_BANCO=vaciar")
     print("=" * 78)
 else:
     print("\nMONTANDO...")
 
     # --- Borrar los restos ---
+    # El orden importa: primero lo que cuelga de otra cosa. Y hay que cancelar
+    # antes de borrar, porque Odoo no deja eliminar un documento confirmado.
+    facturas = env['account.move'].search([('move_type', '!=', 'entry')])
+    facturas.filtered(lambda f: f.state == 'posted').button_draft()
+    facturas.filtered(lambda f: f.state != 'cancel').button_cancel()
+    facturas.unlink()
+
+    env['agrogood.followup'].search([]).unlink()
+    env['agrogood.driver.position'].search([]).unlink()
     rutas.filtered(lambda r: r.state != 'done').action_cancel()
     env['agrogood.route.stop'].search([]).unlink()
     rutas.unlink()
     sesiones.unlink()
-    pend.action_cancel()
+
+    compras = env['purchase.order'].search([])
+    compras.filtered(lambda o: o.state not in ('cancel',)).button_cancel()
+    compras.unlink()
+    env['agrogood.purchase.request'].search([]).unlink()
+
+    todos_alb = env['stock.picking'].search([('state', '!=', 'done')])
+    todos_alb.action_cancel()
     ventas_abiertas.filtered(lambda o: o.state != 'cancel')._action_cancel()
     ventas_abiertas.unlink()
-    pend.unlink()
-    print("  restos de ensayos anteriores eliminados")
+    todos_alb.unlink()
+    print("  operaciones eliminadas: facturas, rutas, preparaciones, compras,")
+    print("  solicitudes, albaranes y pedidos")
+
+    if SOLO_VACIAR:
+        # Los asientos de valoracion ya generados NO se pueden borrar sin
+        # falsear la contabilidad, asi que el stock se pone a cero con un
+        # ajuste de inventario, que es lo que se haria en la vida real.
+        quants = env['stock.quant'].search([
+            ('location_id.usage', '=', 'internal'), ('quantity', '!=', 0)])
+        if quants:
+            quants.with_context(inventory_mode=True).write({'inventory_quantity': 0})
+            quants.with_context(inventory_mode=True)._apply_inventory()
+        # Se confirma AQUI, antes de tocar los lotes. Si el borrado de lotes
+        # falla y hubiera que deshacerlo, un rollback posterior se llevaria por
+        # delante la puesta a cero del stock, que ya esta bien hecha.
+        env.cr.commit()
+        # Los lotes del banco solo se pueden borrar si ya no queda ningun
+        # registro de inventario apuntandolos, y Odoo conserva los registros en
+        # cero. Si no se dejan borrar no pasa nada: un lote vacio no afecta a
+        # nada y se reutiliza si se vuelve a montar el banco.
+        lotes = env['stock.lot'].search([('name', '=', 'BANCO-PRUEBAS')])
+        if lotes:
+            try:
+                env['stock.quant'].search([('lot_id', 'in', lotes.ids)]).unlink()
+                lotes.unlink()
+                print("  lotes del banco eliminados")
+            except Exception:
+                env.cr.rollback()
+                print("  lotes del banco: se conservan (siguen referenciados)")
+        env.cr.commit()
+        print("  stock puesto a cero (%d ubicaciones ajustadas)" % len(quants))
+        print(chr(10) + "=" * 78)
+        print("BASE VACIA Y LISTA PARA CONSTRUIR EL FLUJO A MANO")
+        print("  clientes         : %d" % env['res.partner'].search_count(
+            [('agrogood_business_line_id', '!=', False)]))
+        print("  productos        : %d" % env['product.template'].search_count(
+            [('is_storable', '=', True)]))
+        print("  usuarios         : %d" % env['res.users'].search_count(
+            [('login', 'like', '@agrogood.cl')]))
+        print("  pedidos abiertos : %d" % env['sale.order'].search_count(
+            [('state', 'in', ('draft', 'sent', 'sale'))]))
+        print("  stock            : %d productos con existencias" %
+              env['stock.quant'].search_count(
+                  [('location_id.usage', '=', 'internal'), ('quantity', '>', 0)]))
+        print("=" * 78)
+        raise SystemExit(0)
 
     # --- Stock, que sin el no hay nada que preparar ---
     almacen = env['stock.warehouse'].search([], limit=1)

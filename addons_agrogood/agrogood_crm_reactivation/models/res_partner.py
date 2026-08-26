@@ -1,9 +1,21 @@
 from datetime import timedelta
 
+import pytz
+
 from odoo import api, fields, models
 
 DIAS = [('0', "Lunes"), ('1', "Martes"), ('2', "Miercoles"), ('3', "Jueves"),
         ('4', "Viernes"), ('5', "Sabado"), ('6', "Domingo")]
+
+
+def _fecha_local(momento, tz):
+    """Fecha del calendario en que ocurrio `momento` para quien vive en `tz`.
+
+    Odoo almacena los Datetime en UTC. Un pedido de las 21:30 del martes en
+    Concepcion esta guardado como las 01:30 del miercoles, y `.date()` diria
+    miercoles. Para el cliente, y para Ventas, fue el martes.
+    """
+    return pytz.utc.localize(momento).astimezone(tz).date()
 
 
 class ResPartner(models.Model):
@@ -100,6 +112,10 @@ class ResPartner(models.Model):
         socios = self or self.search([('agrogood_business_line_id', '!=', False)])
         Pedido = self.env['sale.order']
         hoy = fields.Date.context_today(self)
+        # El recalculo lo dispara un cron, y el usuario del cron puede no tener
+        # zona horaria. Se cae a la de Agrogood en lugar de a UTC, que es el
+        # valor que produciria el error que esta conversion evita.
+        tz = pytz.timezone(self.env.user.tz or 'America/Santiago')
 
         for socio in socios:
             comercial = socio.commercial_partner_id
@@ -122,7 +138,20 @@ class ResPartner(models.Model):
                 })
                 continue
 
-            fechas = [p.date_order.date() for p in pedidos]
+            # `date_order` es un Datetime que Odoo guarda en UTC, y `hoy` es la
+            # fecha LOCAL. Tomar `.date()` sin convertir mezcla dos husos: en
+            # Chile (UTC-4) todo pedido tomado despues de las 20:00 quedaria
+            # fechado al dia siguiente.
+            #
+            # No es un caso raro en este negocio, es el normal: los clientes
+            # HORECA piden por la tarde para recibir al dia siguiente. Sin la
+            # conversion, la mayor parte de la cartera tendria mal la fecha de
+            # ultima compra, mal los dias sin comprar y -lo que mas importa-
+            # mal su DIA HABITUAL, que es sobre lo que se arma la lista de
+            # recontacto. Un cliente que compra los martes por la tarde
+            # figuraria como cliente de miercoles, y se le llamaria el dia
+            # equivocado toda la vida del sistema.
+            fechas = [_fecha_local(p.date_order, tz) for p in pedidos]
             total = sum(pedidos.mapped('amount_untaxed'))
             n = len(pedidos)
 
