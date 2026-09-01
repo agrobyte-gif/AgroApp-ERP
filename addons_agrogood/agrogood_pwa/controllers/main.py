@@ -58,6 +58,12 @@ class AgrogoodPwa(http.Controller):
                 'sub': "Tomar pedidos y ver el dia",
                 'url': '/agrogood/ventas',
             })
+        if tiene('group_agrogood_logistics_manager'):
+            accesos.append({
+                'clave': 'logistica', 'nombre': "Logistica",
+                'sub': "Repartir el trabajo y armar las rutas",
+                'url': '/agrogood/logistica',
+            })
         if tiene('group_agrogood_warehouse'):
             accesos.append({
                 'clave': 'bodega', 'nombre': "Bodega",
@@ -784,3 +790,158 @@ class AgrogoodBodega(http.Controller):
         except (UserError, ValidationError) as e:
             return {'ok': False, 'mensaje': str(e)}
         return {'ok': True, 'mensaje': _("Merma registrada: %s", merma.name)}
+
+
+class AgrogoodLogistica(http.Controller):
+    """Pantallas propias de Logistica.
+
+    Felipe reparte el trabajo del dia y arma las rutas. En Odoo eso son dos
+    listas, un asistente y un formulario con lineas, y hay que saber donde
+    esta cada cosa. Aqui son dos pantallas: a quien le toca preparar, y quien
+    lleva que.
+
+    Se reutilizan los modelos y los asistentes que ya existen -no se duplica
+    logica-: lo que cambia es que se llega a ellos en dos toques.
+    """
+
+    def _es_logistica(self):
+        u = request.env.user
+        return (u.has_group('agrogood_base.group_agrogood_logistics_manager')
+                or u.has_group('agrogood_base.group_agrogood_general_admin'))
+
+    @http.route('/agrogood/logistica', type='http', auth='user', website=False)
+    def logistica_home(self, **kw):
+        if not self._es_logistica():
+            return request.redirect('/agrogood/app')
+        Pick = request.env['stock.picking']
+        Sesion = request.env['agrogood.picking.session']
+        salidas = Pick.search([('picking_type_id.code', '=', 'outgoing'),
+                               ('state', 'not in', ('done', 'cancel'))])
+        return request.render('agrogood_pwa.logistica_home', {
+            'sin_picker': salidas.filtered(lambda p: not p.agrogood_session_id),
+            'preparando': Sesion.search(
+                [('state', 'in', ('assigned', 'in_progress'))]),
+            'listos': salidas.filtered(
+                lambda p: p.agrogood_session_id
+                and p.agrogood_session_id[0].state == 'done'
+                and not p.agrogood_route_id),
+            'rutas': request.env['agrogood.route'].search(
+                [('state', 'in', ('draft', 'planned', 'in_progress'))],
+                order='date, id'),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/logistica/asignar', type='http', auth='user',
+                website=False)
+    def logistica_asignar(self, **kw):
+        if not self._es_logistica():
+            return request.redirect('/agrogood/app')
+        Pick = request.env['stock.picking']
+        grupo = request.env.ref('agrogood_base.group_agrogood_picker',
+                                raise_if_not_found=False)
+        pickers = request.env['res.users'].search(
+            [('groups_id', 'in', grupo.ids)]) if grupo else request.env['res.users']
+        Sesion = request.env['agrogood.picking.session']
+        carga = {
+            p.id: Sesion.search_count([('picker_id', '=', p.id),
+                                       ('state', 'in', ('assigned', 'in_progress'))])
+            for p in pickers
+        }
+        return request.render('agrogood_pwa.logistica_asignar', {
+            'albaranes': Pick.search(
+                [('picking_type_id.code', '=', 'outgoing'),
+                 ('state', 'not in', ('done', 'cancel'))]).filtered(
+                     lambda p: not p.agrogood_session_id),
+            'pickers': pickers,
+            'carga': carga,
+        })
+
+    @http.route('/agrogood/logistica/ruta', type='http', auth='user',
+                website=False)
+    def logistica_ruta(self, **kw):
+        if not self._es_logistica():
+            return request.redirect('/agrogood/app')
+        Pick = request.env['stock.picking']
+        grupo = request.env.ref('agrogood_base.group_agrogood_driver',
+                                raise_if_not_found=False)
+        # Solo se ofrecen los albaranes YA PREPARADOS. Meter en una ruta algo
+        # que el Picker no ha terminado manda al conductor a buscar una caja
+        # que todavia no existe.
+        listos = Pick.search(
+            [('picking_type_id.code', '=', 'outgoing'),
+             ('state', 'not in', ('done', 'cancel'))]).filtered(
+                 lambda p: p.agrogood_session_id
+                 and p.agrogood_session_id[0].state == 'done'
+                 and not p.agrogood_route_id)
+        return request.render('agrogood_pwa.logistica_ruta', {
+            'albaranes': listos,
+            'conductores': request.env['res.users'].search(
+                [('groups_id', 'in', grupo.ids)]) if grupo else request.env['res.users'],
+            'vehiculos': request.env['fleet.vehicle'].search([]),
+            'hoy': fields.Date.to_string(fields.Date.context_today(request.env.user)),
+        })
+
+    # ------------------------------------------------------------------
+    # Acciones
+    # ------------------------------------------------------------------
+
+    @http.route('/agrogood/api/logistica/asignar', type='json', auth='user')
+    def api_asignar(self, picking_ids, picker_id, **kw):
+        """Reparte albaranes a un Picker.
+
+        Se apoya en el asistente que ya existe en lugar de crear las sesiones a
+        mano: ahi vive la comprobacion de que ninguno tenga ya Picker asignado,
+        y duplicarla seria tener dos sitios donde arreglarla.
+        """
+        if not self._es_logistica():
+            raise AccessError(_("No tienes permiso de Logistica."))
+        if not picking_ids:
+            return {'ok': False, 'mensaje': _("No has elegido ningun pedido.")}
+        try:
+            asistente = request.env['agrogood.assign.picker'].create({
+                'picking_ids': [(6, 0, [int(i) for i in picking_ids])],
+                'picker_id': int(picker_id),
+            })
+            asistente.action_assign()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        n = len(picking_ids)
+        return {'ok': True, 'mensaje': _(
+            "%(n)s pedido(s) asignados. Ya los ve en su telefono.", n=n)}
+
+    @http.route('/agrogood/api/logistica/ruta', type='json', auth='user')
+    def api_crear_ruta(self, picking_ids, driver_id, vehicle_id, fecha=None, **kw):
+        if not self._es_logistica():
+            raise AccessError(_("No tienes permiso de Logistica."))
+        if not picking_ids:
+            return {'ok': False, 'mensaje': _("La ruta no lleva ninguna entrega.")}
+        Ruta = request.env['agrogood.route']
+        try:
+            ruta = Ruta.create({
+                'driver_id': int(driver_id),
+                'vehicle_id': int(vehicle_id),
+                'date': fecha or fields.Date.context_today(request.env.user),
+            })
+            # `agrogood_route_id` es un campo CALCULADO a partir de la parada:
+            # no se le escribe. Se usa el asistente que ya existe, que ademas
+            # comprueba que los albaranes esten preparados -meter en el camion
+            # un pedido a medio preparar es la forma mas rapida de que salga
+            # incompleto- y numera las paradas.
+            request.env['agrogood.route.add.pickings'].create({
+                'route_id': ruta.id,
+                'picking_ids': [(6, 0, [int(i) for i in picking_ids])],
+            }).action_add()
+            ruta.invalidate_recordset()
+            ruta.action_plan()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {
+            'ok': True,
+            'nombre': ruta.name,
+            'peso': round(ruta.estimated_weight),
+            'ocupacion': round(ruta.capacity_usage),
+            'sobrecargada': ruta.is_overloaded,
+            'mensaje': _("%(ruta)s armada: %(n)s entregas, %(kg)s kg.",
+                         ruta=ruta.name, n=len(picking_ids),
+                         kg=round(ruta.estimated_weight)),
+        }

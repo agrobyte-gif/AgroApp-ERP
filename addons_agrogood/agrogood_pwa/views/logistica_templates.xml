@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= LOGISTICA: EL DIA ================= -->
+    <!--
+        Cuatro bloques en el orden en que Felipe los necesita: lo que no tiene
+        Picker, lo que se esta preparando, lo que ya esta listo para cargar y
+        las rutas. Es el camino que recorre una caja, y verlo en ese orden dice
+        de un vistazo donde esta el atasco.
+    -->
+
+    <template id="logistica_home" name="Logistica - el dia">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Logistica</t>
+
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="len(sin_picker)"/></span>
+                    <span class="ag-dato-txt">sin Picker</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="len(preparando)"/></span>
+                    <span class="ag-dato-txt">preparandose</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="len(listos)"/></span>
+                    <span class="ag-dato-txt">listos para cargar</span>
+                </div>
+            </div>
+
+            <t t-if="sin_picker">
+                <a href="/agrogood/logistica/asignar"
+                   class="ag-btn ag-btn-primary ag-btn-xl">
+                    Repartir el trabajo (<t t-esc="len(sin_picker)"/>)
+                </a>
+            </t>
+            <t t-if="listos">
+                <a href="/agrogood/logistica/ruta"
+                   class="ag-btn ag-btn-primary ag-btn-xl">
+                    Armar una ruta (<t t-esc="len(listos)"/> listos)
+                </a>
+            </t>
+
+            <t t-if="preparando">
+                <h2 class="ag-h2">Preparandose ahora</h2>
+                <t t-foreach="preparando" t-as="s">
+                    <div class="ag-card">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="s.partner_id.name"/></span>
+                            <span class="ag-card-sub">
+                                <t t-esc="s.picker_id.name"/> ·
+                                <t t-esc="s.line_count"/> lineas
+                            </span>
+                        </div>
+                        <span t-attf-class="ag-chip #{'ag-chip-warn' if s.state == 'in_progress' else ''}">
+                            <t t-esc="'En curso' if s.state == 'in_progress' else 'Sin empezar'"/>
+                        </span>
+                    </div>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Rutas</h2>
+            <t t-if="not rutas">
+                <p class="ag-muted ag-pad">Ninguna ruta abierta.</p>
+            </t>
+            <t t-foreach="rutas" t-as="r">
+                <div t-attf-class="ag-card #{'ag-card-active' if r.state == 'in_progress' else ''}">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="r.name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="r.driver_id.name or 'sin conductor'"/> ·
+                            <t t-esc="r.stop_count"/> entregas ·
+                            <t t-esc="'{:.0f}'.format(r.capacity_usage)"/>% del camion
+                        </span>
+                    </div>
+                    <span t-attf-class="ag-chip #{'ag-chip-warn' if r.is_overloaded else ''}">
+                        <t t-esc="r.delivered_count"/>/<t t-esc="r.stop_count"/>
+                    </span>
+                </div>
+                <p t-if="r.state == 'planned' and not r.check_ids" class="ag-muted ag-pad">
+                    Esperando que el conductor revise el vehiculo.
+                </p>
+            </t>
+        </t>
+    </template>
+
+    <!-- ================= LOGISTICA: REPARTIR EL TRABAJO ================= -->
+
+    <template id="logistica_asignar" name="Logistica - repartir el trabajo">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Repartir el trabajo</t>
+            <t t-set="volver">/agrogood/logistica</t>
+
+            <t t-if="not albaranes">
+                <p class="ag-muted ag-pad">Todo tiene Picker asignado.</p>
+            </t>
+            <t t-else="">
+                <p class="ag-muted ag-pad">
+                    Marca los pedidos y elige quien los prepara.
+                </p>
+
+                <t t-foreach="albaranes" t-as="p">
+                    <label class="ag-check">
+                        <input type="checkbox" class="ag-check-input ag-alb"
+                               t-att-value="p.id"/>
+                        <span class="ag-check-txt">
+                            <strong><t t-esc="p.partner_id.name"/></strong><br/>
+                            <span class="ag-muted">
+                                <t t-esc="p.name"/> ·
+                                <t t-esc="len(p.move_ids)"/> productos
+                            </span>
+                        </span>
+                    </label>
+                </t>
+
+                <!--
+                    La carga actual de cada Picker se ve al elegir. Repartir a
+                    ciegas termina siempre igual: el mismo con seis pedidos y
+                    otro con ninguno.
+                -->
+                <select id="picker" class="ag-buscar">
+                    <option value="">Quien lo prepara</option>
+                    <t t-foreach="pickers" t-as="k">
+                        <option t-att-value="k.id">
+                            <t t-esc="k.name"/>
+                            <t t-if="carga.get(k.id)">
+                                — ya tiene <t t-esc="carga[k.id]"/>
+                            </t>
+                        </option>
+                    </t>
+                </select>
+
+                <button class="ag-btn ag-btn-primary ag-btn-xl" data-action="asignar">
+                    Asignar
+                </button>
+            </t>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/logistica.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/logistica.js?v=#{v}"/>
+        </t>
+    </template>
+
+    <!-- ================= LOGISTICA: ARMAR LA RUTA ================= -->
+
+    <template id="logistica_ruta" name="Logistica - armar la ruta">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Armar una ruta</t>
+            <t t-set="volver">/agrogood/logistica</t>
+
+            <t t-if="not albaranes">
+                <p class="ag-muted ag-pad">
+                    No hay nada preparado esperando camion. Aparecera aqui en
+                    cuanto un Picker termine.
+                </p>
+            </t>
+            <t t-else="">
+                <p class="ag-muted ag-pad">
+                    Solo aparecen los pedidos ya preparados: cargar uno a medias
+                    manda al conductor a buscar una caja que no existe.
+                </p>
+
+                <t t-foreach="albaranes" t-as="p">
+                    <label class="ag-check">
+                        <input type="checkbox" class="ag-check-input ag-alb"
+                               t-att-value="p.id"
+                               t-att-data-peso="p.agrogood_session_id[0].qty_total if p.agrogood_session_id else 0"/>
+                        <span class="ag-check-txt">
+                            <strong><t t-esc="p.partner_id.name"/></strong><br/>
+                            <span class="ag-muted">
+                                <t t-esc="p.partner_id.street or 'sin direccion'"/>
+                            </span>
+                        </span>
+                    </label>
+                </t>
+
+                <select id="conductor" class="ag-buscar">
+                    <option value="">Quien lo lleva</option>
+                    <t t-foreach="conductores" t-as="c">
+                        <option t-att-value="c.id"><t t-esc="c.name"/></option>
+                    </t>
+                </select>
+
+                <select id="vehiculo" class="ag-buscar">
+                    <option value="">En que camion</option>
+                    <t t-foreach="vehiculos" t-as="v">
+                        <option t-att-value="v.id"><t t-esc="v.name"/></option>
+                    </t>
+                </select>
+
+                <input type="date" id="fecha-ruta" class="ag-buscar" t-att-value="hoy"/>
+
+                <button class="ag-btn ag-btn-primary ag-btn-xl" data-action="ruta">
+                    Armar la ruta
+                </button>
+            </t>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/logistica.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/logistica.js?v=#{v}"/>
+        </t>
+    </template>
+
+</odoo>

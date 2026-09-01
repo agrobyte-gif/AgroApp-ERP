@@ -33,6 +33,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
         'views/templates.xml',
         'views/ventas_templates.xml',
         'views/bodega_templates.xml',
+        'views/logistica_templates.xml',
     ],
     'installable': True,
 }
