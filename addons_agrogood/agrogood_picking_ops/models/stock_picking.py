@@ -91,18 +91,28 @@ class StockPicking(models.Model):
         """
         resultado = self.browse()
         for picking in self:
-            # SOLO en las salidas. En una entrega, 0,6 kg de menos es lo que
-            # peso la caja. En una COMPRA, lo que falta es mercaderia que
-            # Agrogood pago y no recibio: si se cierra sin pedido en espera, se
-            # piden 20 kg, llegan 18, el sistema da la compra por completa y
-            # nadie reclama los 2 que faltan. La diferencia entre las dos
-            # situaciones no es la cantidad, es de quien es la perdida.
-            if picking.picking_type_id.code != 'outgoing':
-                continue
             cortas = picking.move_ids.filtered(
                 lambda m: m.state != 'cancel' and m._agrogood_is_short())
-            if cortas and all(
+            if not cortas or not all(
                     m.product_id.agrogood_is_variable_weight for m in cortas):
+                continue
+
+            if picking.picking_type_id.code == 'outgoing':
+                # En una ENTREGA no hay nada que perseguir: esos 0,6 kg de
+                # menos son lo que peso la caja, y se factura lo entregado.
+                resultado |= picking
+                continue
+
+            # En una COMPRA la falta es mercaderia pagada y no recibida, asi
+            # que se aplica la tolerancia de cada producto -la misma que ya usa
+            # el Picker en la balanza, para que el equipo no aprenda dos
+            # reglas-. Dentro de ella es el peso del envase; por encima, es una
+            # entrega corta que hay que reclamarle al proveedor.
+            #
+            # Sin esta distincion solo caben dos malas opciones: dejar
+            # pendientes de 300 gramos que nadie va a reclamar, o cerrar
+            # compras a las que les falta mercaderia de verdad.
+            if all(m._agrogood_short_within_tolerance() for m in cortas):
                 resultado |= picking
         return resultado
 

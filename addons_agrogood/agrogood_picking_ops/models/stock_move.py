@@ -84,7 +84,20 @@ class StockMove(models.Model):
             tolerancia = move.product_id.agrogood_weight_tolerance or 0.0
             if not tolerancia:
                 continue
-            if abs(move.agrogood_weight_deviation) <= tolerancia:
+            desviacion = move.agrogood_weight_deviation
+            if abs(desviacion) <= tolerancia:
+                continue
+            # Al RECIBIR una compra, quedarse corto es normal: el proveedor
+            # entrego menos, y esa falta se persigue con el pedido en espera,
+            # no bloqueando la recepcion. Lo sospechoso al recibir es lo
+            # CONTRARIO: registrar mas de lo comprado, que casi siempre es un
+            # cero de mas, infla el stock y ensucia el costo promedio.
+            #
+            # Sin esta distincion Bodega no puede anotar una entrega corta sin
+            # pelearse con un mensaje que ademas le habla de marcar la linea
+            # como faltante o sustituida: cosas del Picker que no existen en
+            # una recepcion.
+            if move.picking_id.picking_type_id.code == 'incoming' and desviacion < 0:
                 continue
             justificada = (
                 move.agrogood_incident_note
@@ -96,8 +109,13 @@ class StockMove(models.Model):
         if problemas:
             raise ValidationError(_(
                 "Hay pesos que se apartan demasiado de lo pedido:\n\n%(lineas)s\n"
-                "Corrige la cantidad, o marca la linea como faltante o sustituida, "
-                "o deja una nota de incidencia explicando que paso.",
+                "%(salida)s",
+                salida=_("Se esta registrando MAS de lo comprado. Revisa la "
+                         "cantidad; si de verdad llego de mas, deja una nota.")
+                if all(m.picking_id.picking_type_id.code == "incoming"
+                       for m in problemas)
+                else _("Corrige la cantidad, o marca la linea como faltante o "
+                       "sustituida, o deja una nota de incidencia."),
                 lineas="\n".join(
                     _("  - %(producto)s: se pidieron %(pedido)s y se prepararon "
                       "%(real)s (%(desv)+.1f %%, tolerancia %(tol)s %%)",
@@ -109,6 +127,23 @@ class StockMove(models.Model):
                 ),
             ))
         return True
+
+    def _agrogood_short_within_tolerance(self):
+        """True si lo que falta cabe dentro de la tolerancia del producto.
+
+        Se usa al RECIBIR una compra de peso variable. Pedir 20 kg y que lleguen
+        19,7 es el peso del envase; que lleguen 15 es una entrega corta. La
+        tolerancia es la misma que el Picker tiene en la balanza -por producto,
+        10% por defecto- para que no haya dos reglas distintas segun la punta
+        del almacen en la que se este.
+        """
+        self.ensure_one()
+        pedido = self.product_uom_qty or 0.0
+        if pedido <= 0:
+            return True
+        falta = pedido - (self.quantity or 0.0)
+        margen = pedido * (self.product_id.agrogood_weight_tolerance or 0.0) / 100.0
+        return falta <= margen
 
     def _agrogood_is_short(self):
         """True si se preparo menos de lo pedido."""

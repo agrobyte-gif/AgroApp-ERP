@@ -125,5 +125,29 @@ peso la caja"- vale cuando **Agrogood prepara** el pedido. En una compra, lo que
 falta es mercaderia **pagada y no recibida**. La diferencia entre las dos
 situaciones no es la cantidad: es de quien es la perdida.
 
-`_agrogood_pickings_without_backorder()` ahora ignora todo lo que no sea
-`picking_type_id.code == 'outgoing'`. Queda cubierto por `tools/prueba_bodega.py`.
+### La regla definitiva
+
+No es "salidas si, entradas no": es que cada lado tiene su criterio.
+
+| | Falta mercaderia | De quien es la perdida |
+|---|---|---|
+| **Entrega** | Es el peso de la caja | De nadie: se factura lo entregado |
+| **Compra, dentro de tolerancia** | Es el peso del envase | De nadie: se paga lo que llego |
+| **Compra, fuera de tolerancia** | Entrega corta | Del proveedor: hay que reclamar |
+
+La tolerancia es la del producto -10% por defecto-, la MISMA que el Picker
+tiene en la balanza. Dos reglas distintas segun la punta del almacen en la que
+uno este serian imposibles de recordar.
+
+### El control de peso tampoco valia para las entradas
+
+`_agrogood_check_weight_tolerance()` se ejecutaba en cualquier albaran y
+BLOQUEABA recibir 15 de 20, pidiendole ademas a Bodega que marcara la linea
+como "faltante o sustituida" -conceptos del Picker que no existen al recibir-.
+
+Al recibir, quedarse corto es normal y se persigue con el pedido en espera. Lo
+sospechoso es lo contrario: registrar MAS de lo comprado, que casi siempre es
+un cero de mas e infla el stock y el costo promedio. El control queda asi: en
+salidas vigila las dos direcciones; en entradas, solo el exceso.
+
+Todo cubierto por `tools/prueba_bodega.py`.

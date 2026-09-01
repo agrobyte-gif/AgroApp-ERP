@@ -65,8 +65,8 @@ mov = rec.move_ids[0]
 # --- sin lote, se rechaza (es la guardia del endpoint) ---
 def falta_lote(cantidad, lote):
     return mov.product_id.tracking == 'lot' and cantidad > 0 and not (lote or '').strip()
-paso("Recibir sin numero de lote se rechaza", falta_lote(18.0, ""))
-paso("Con lote, pasa", not falta_lote(18.0, "L-2026-001"))
+paso("Recibir sin numero de lote se rechaza", falta_lote(16.0, ""))
+paso("Con lote, pasa", not falta_lote(16.0, "L-2026-001"))
 
 # --- recibir 18 de 20, con lote y vencimiento ---
 mov.move_line_ids.unlink()
@@ -74,7 +74,7 @@ vence = fields.Date.to_string(fields.Date.today() + timedelta(days=9))
 E['stock.move.line'].create({
     'move_id': mov.id, 'product_id': mov.product_id.id,
     'location_id': mov.location_id.id, 'location_dest_id': mov.location_dest_id.id,
-    'quantity': 18.0, 'picked': True,
+    'quantity': 16.0, 'picked': True,
     'lot_name': 'L-2026-001', 'expiration_date': vence + " 12:00:00",
 })
 res = rec.button_validate()
@@ -96,9 +96,47 @@ paso("La caducidad no se corre un dia por la zona horaria",
 
 # --- lo que falto sigue debiendose ---
 pendiente = oc.picking_ids.filtered(lambda p: p.state not in ('done','cancel'))
-paso("Los 2 que faltaron quedan pendientes", bool(pendiente),
+# 16 de 20 son un 20% de falta: por encima de la tolerancia del 10%, asi que
+# es una entrega corta de verdad y hay que reclamarla.
+paso("Los 4 que faltaron quedan pendientes", bool(pendiente),
      "%s por %s unidades" % (pendiente[:1].name or '-',
                              sum(pendiente.move_ids.mapped('product_uom_qty')) if pendiente else 0))
+
+# --- la tolerancia distingue el envase de la entrega corta -------------------
+# Pedir 20 y recibir 19,8 es el peso de la caja: no genera pendiente. Recibir
+# 15 es una entrega corta y hay que reclamarla. Es la misma tolerancia que el
+# Picker tiene en la balanza, para que no haya dos reglas.
+if prod.agrogood_is_variable_weight:
+    def sobra_pendiente(recibido):
+        oc2 = env['purchase.order'].create({
+            'partner_id': prov.id,
+            'order_line': [(0, 0, {'product_id': prod.id, 'product_qty': 20.0,
+                                   'price_unit': 1000.0, 'name': prod.name,
+                                   'date_planned': fields.Datetime.now()})]})
+        oc2.button_confirm()
+        r2 = oc2.picking_ids[:1]
+        m2 = r2.move_ids[0]
+        m2.move_line_ids.unlink()
+        env['stock.move.line'].create({
+            'move_id': m2.id, 'product_id': m2.product_id.id,
+            'location_id': m2.location_id.id,
+            'location_dest_id': m2.location_dest_id.id,
+            'quantity': recibido, 'picked': True,
+            'lot_name': 'L-TOL-%s' % recibido,
+            'expiration_date': vence + " 12:00:00"})
+        res2 = r2.button_validate()
+        if isinstance(res2, dict) and res2.get('res_model'):
+            a = env[res2['res_model']].with_context(**res2.get('context', {})).create({})
+            (a.process if hasattr(a, 'process') else a.action_confirm)()
+        return bool(oc2.picking_ids.filtered(lambda x: x.state not in ('done', 'cancel')))
+
+    tol = prod.agrogood_weight_tolerance
+    paso("Dentro de la tolerancia (%.0f%%) no queda pendiente" % tol,
+         not sobra_pendiente(19.8), "20 pedidos, 19,8 recibidos: es el envase")
+    paso("Fuera de la tolerancia si queda pendiente",
+         sobra_pendiente(15.0), "20 pedidos, 15 recibidos: hay que reclamar")
+else:
+    print("  (el producto de prueba no es de peso variable; se omite la tolerancia)")
 
 # --- merma con motivo ---
 alm = env['stock.warehouse'].search([], limit=1)
