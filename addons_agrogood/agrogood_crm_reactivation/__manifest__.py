@@ -32,6 +32,7 @@ decision.
         'security/ir.model.access.csv',
         'views/agrogood_followup_views.xml',
         'views/res_partner_views.xml',
+        'views/agrogood_payer_views.xml',
         'data/ir_cron.xml',
         'views/menus.xml',
     ],

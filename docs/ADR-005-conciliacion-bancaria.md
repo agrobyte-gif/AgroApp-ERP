@@ -1,7 +1,7 @@
 # ADR-005 - Conciliacion bancaria: cruzar los pagos con los clientes
 
 Fecha: 2026-08-26
-Estado: **aceptado, pendiente de implementar**
+Estado: **aceptado; el modelo de identidades ya esta implementado**
 Decide: como se sabe quien pago, sin revisar la cartola a mano
 
 ## Contexto
@@ -82,3 +82,51 @@ donde empiezan.
 * Ojo con el formato: la hoja de Scotiabank tiene 790 filas con las columnas
   corridas -otro bloque dentro de la misma hoja-. El lector tiene que
   saltarselas en lugar de interpretarlas mal.
+
+
+---
+
+## Correccion (2026-08-26): no se cruza contra el RUT de la ficha
+
+Al revisar el analisis con Agrogood aparecio lo que faltaba: **un cliente no
+paga siempre desde el mismo RUT**. Transfiere desde la sociedad operativa,
+desde otra relacionada, o desde el RUT personal del dueno. Ninguno tiene por
+que ser el que figura en su ficha.
+
+Se volvio a medir sobre la misma cartola, cruzando por NOMBRE los 359
+pagadores desconocidos:
+
+| | |
+|---|---|
+| Pagadores distintos en Scotiabank | 407 |
+| Cruzan por el RUT de su ficha | 48 |
+| Mismo negocio con otro RUT (por nombre) | 5 |
+| No se parecen a ningun cliente | 354 |
+
+Y de esos cinco, tres son **clientes que no tienen RUT en su ficha**: la
+cartola se lo esta dando. Los otros dos -`RESTAURANT PAC` contra `RESTAURANT
+KEKA`, `RESTAURANTES BU` contra `RESTAURANT GABY`- se parecen un 80% y no
+tienen nada que ver. Ese es exactamente el motivo por el que **no se adivina
+por parecido de nombre**: dar por pagada la factura de otro cliente no es un
+dato mal puesto, es un cobro que se deja de perseguir.
+
+### El modelo
+
+`agrogood.payer` guarda **como aparece un cliente en el banco**: un cliente
+tiene tantas identidades como haga falta, de dos tipos.
+
+| Tipo | De donde sale |
+|---|---|
+| `rut` | Columna `Rut Origen` de Scotiabank, normalizada y validada |
+| `alias` | Columna `CLIENTE` de Santander: *BAR CALLEJON*, *HOP*, *LOCO JOE* |
+
+Se aprende UNA vez, al enlazar un pago a mano, y a partir de ahi cruza solo. El
+RUT de la ficha sigue funcionando sin configurar nada: es el caso mas comun al
+empezar y no tiene sentido obligar a registrarlo dos veces.
+
+Una identidad no puede apuntar a dos clientes -restriccion en base de datos-,
+porque eso repartiria los cobros al azar entre ambos.
+
+Las identidades se ven y se editan en la propia ficha del cliente, pestana
+**Como paga**. Un cliente que paga raro se explica en su ficha, no en otra
+pantalla que hay que saber que existe.

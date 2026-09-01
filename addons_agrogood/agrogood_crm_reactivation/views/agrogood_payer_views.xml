@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="payer_view_list" model="ir.ui.view">
+        <field name="name">agrogood.payer.list</field>
+        <field name="model">agrogood.payer</field>
+        <field name="arch" type="xml">
+            <list string="Identidades de pago" editable="bottom">
+                <field name="partner_id"/>
+                <field name="kind"/>
+                <field name="value"/>
+                <field name="bank" optional="show"/>
+                <field name="note" optional="show"/>
+                <field name="times_seen" optional="hide"/>
+                <field name="last_seen" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="payer_view_search" model="ir.ui.view">
+        <field name="name">agrogood.payer.search</field>
+        <field name="model">agrogood.payer</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="value"/>
+                <field name="partner_id"/>
+                <filter name="f_rut" string="Por RUT" domain="[('kind','=','rut')]"/>
+                <filter name="f_alias" string="Por alias del banco"
+                        domain="[('kind','=','alias')]"/>
+                <filter name="f_sin_usar" string="Nunca vistas"
+                        domain="[('times_seen','=',0)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_cliente" string="Cliente"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="g_tipo" string="Tipo"
+                            context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="payer_action" model="ir.actions.act_window">
+        <field name="name">Como pagan los clientes</field>
+        <field name="res_model">agrogood.payer</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavia no hay ninguna</p>
+            <p>
+                Un cliente no paga siempre desde el mismo sitio: la sociedad
+                operativa, otra relacionada, el RUT del dueno. Y Santander ni
+                siquiera publica el RUT, solo un nombre corto.
+            </p><p>
+                Cada vez que se enlaza un pagador con su cliente, queda aqui y
+                a partir de entonces se reconoce solo.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_payer" name="Como pagan los clientes"
+              parent="agrogood_dashboards.menu_dash_ventas"
+              action="payer_action" sequence="60"/>
+
+    <!--
+        Y en la ficha del cliente, para verlo donde se mira: al abrir un cliente
+        que paga raro, la explicacion esta en su propia ficha y no en otra
+        pantalla que hay que saber que existe.
+    -->
+    <record id="partner_form_payers" model="ir.ui.view">
+        <field name="name">res.partner.form.agrogood.payers</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Como paga" name="agrogood_payers"
+                      groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin">
+                    <field name="agrogood_payer_ids">
+                        <list editable="bottom">
+                            <field name="kind"/>
+                            <field name="value"/>
+                            <field name="bank"/>
+                            <field name="note"/>
+                            <field name="times_seen" readonly="1"/>
+                        </list>
+                    </field>
+                    <p class="text-muted">
+                        Los RUT y los nombres cortos desde los que este cliente
+                        transfiere. Se anaden solos cuando alguien enlaza un
+                        pago, y tambien se pueden escribir aqui.
+                    </p>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+</odoo>

@@ -86,6 +86,7 @@ defecto y solo escriben cuando se les pasa una variable de entorno explícita:
 | `prueba_bodega.py` | Recibir compras y mermar, con lotes y caducidad |
 | `prueba_logistica.py` | Repartir el trabajo y armar rutas |
 | `prueba_compras.py` | La pizarra: proveedor, precio y orden agrupada |
+| `prueba_pagadores.py` | Identidades de pago: RUT y alias del banco |
 | `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
 
 ---

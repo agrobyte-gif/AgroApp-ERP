@@ -32,6 +32,12 @@ class ResPartner(models.Model):
 
     _inherit = 'res.partner'
 
+    agrogood_payer_ids = fields.One2many(
+        comodel_name='agrogood.payer', inverse_name='partner_id',
+        string="Como paga",
+        help="Los RUT y nombres cortos desde los que este cliente "
+             "transfiere. Un negocio no paga siempre desde el mismo.",
+    )
     agrogood_order_count = fields.Integer(string="Pedidos", readonly=True)
     agrogood_first_order_date = fields.Date(string="Primera compra", readonly=True)
     agrogood_last_order_date = fields.Date(string="Ultima compra", readonly=True)
