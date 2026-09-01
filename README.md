@@ -88,6 +88,7 @@ defecto y solo escriben cuando se les pasa una variable de entorno explícita:
 | `prueba_compras.py` | La pizarra: proveedor, precio y orden agrupada |
 | `prueba_pagadores.py` | Identidades de pago: RUT y alias del banco |
 | `prueba_direccion.py` | Que las cifras signifiquen lo que dicen |
+| `exportar_pesos.py` / `importar_pesos.py` | Peso de los productos por formato, vía planilla |
 | `simulacro_restauracion.py` | **Comprueba que el respaldo se puede restaurar** |
 | `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
 
