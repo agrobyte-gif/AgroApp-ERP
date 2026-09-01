@@ -32,6 +32,52 @@ class AgrogoodPwa(http.Controller):
             return 'driver'
         return None
 
+    def _accesos(self):
+        """Pantallas propias a las que llega este usuario.
+
+        Se devuelve una LISTA y no un rol unico a proposito. Los roles de
+        Agrogood se acumulan por necesidad -el encargado de bodega prepara
+        pedidos cuando hace falta, y el jefe de logistica hereda ambos-, asi
+        que decidir "eres un picker" a partir del primer grupo que coincida
+        manda a la pantalla equivocada a media plantilla. Con la lista, quien
+        tiene un solo acceso entra directo y quien tiene varios elige.
+        """
+        u = request.env.user
+        def tiene(g):
+            return u.has_group('agrogood_base.' + g)
+
+        accesos = []
+        if tiene('group_agrogood_sales') or tiene('group_agrogood_general_admin'):
+            accesos.append({
+                'clave': 'ventas', 'nombre': "Ventas",
+                'sub': "Tomar pedidos y ver el dia",
+                'url': '/agrogood/ventas',
+            })
+        if tiene('group_agrogood_picker'):
+            accesos.append({
+                'clave': 'picker', 'nombre': "Preparacion",
+                'sub': "Preparar los pedidos asignados",
+                'url': '/agrogood/picker',
+            })
+        if tiene('group_agrogood_driver'):
+            accesos.append({
+                'clave': 'driver', 'nombre': "Reparto",
+                'sub': "Tu ruta y tus entregas",
+                'url': '/agrogood/driver',
+            })
+        return accesos
+
+    def _mi_cliente(self, partner_id):
+        """Cliente valido para vender: con linea comercial y sin hijos sueltos."""
+        socio = request.env['res.partner'].browse(int(partner_id))
+        socio.check_access('read')
+        if not socio.agrogood_business_line_id:
+            raise UserError(_(
+                "%s no tiene linea comercial asignada, asi que no tiene lista "
+                "de precios. Corrigelo antes de tomarle el pedido.",
+                socio.display_name))
+        return socio
+
     def _mi_sesion(self, session_id):
         """Devuelve la sesion solo si es del usuario que la pide."""
         sesion = request.env['agrogood.picking.session'].browse(int(session_id))
@@ -56,12 +102,15 @@ class AgrogoodPwa(http.Controller):
 
     @http.route('/agrogood/app', type='http', auth='user', website=False)
     def app(self, **kw):
-        rol = self._rol()
-        if rol == 'picker':
-            return request.redirect('/agrogood/picker')
-        if rol == 'driver':
-            return request.redirect('/agrogood/driver')
-        return request.render('agrogood_pwa.sin_rol', {})
+        accesos = self._accesos()
+        if not accesos:
+            return request.render('agrogood_pwa.sin_rol', {})
+        if len(accesos) == 1:
+            # Con un solo acceso no se pregunta: el conductor abre la app y ya
+            # esta en su ruta. Una pantalla intermedia de un solo boton es un
+            # toque de mas, todos los dias.
+            return request.redirect(accesos[0]['url'])
+        return request.render('agrogood_pwa.elegir', {'accesos': accesos})
 
     # ------------------------------------------------------------------
     # Picker
@@ -253,3 +302,189 @@ class AgrogoodPwa(http.Controller):
         except (UserError, ValidationError) as e:
             return self._respuesta(False, str(e))
         return self._respuesta(True, _("Ruta terminada."))
+
+
+class AgrogoodVentas(http.Controller):
+    """Pantallas propias de Ventas.
+
+    Existe por lo mismo que las de Picker y Conductor: el cliente web de Odoo
+    es una herramienta de oficina, y tomar un pedido es una tarea de treinta
+    segundos que se hace con el telefono en una mano mientras el cliente habla
+    por el otro lado. En el formulario estandar hay que abrir el pedido, buscar
+    el cliente, anadir linea, buscar producto, escribir cantidad, guardar,
+    confirmar. Aqui son tres toques y el precio de SU lista se ve siempre.
+
+    El motor sigue siendo el mismo: se crean `sale.order` normales, con sus
+    tarifas, sus impuestos y sus albaranes. Lo que cambia es lo que se ve.
+    """
+
+    def _es_ventas(self):
+        u = request.env.user
+        return (u.has_group('agrogood_base.group_agrogood_sales')
+                or u.has_group('agrogood_base.group_agrogood_general_admin'))
+
+    def _hoy(self):
+        return fields.Datetime.to_string(
+            fields.Datetime.now().replace(hour=0, minute=0, second=0))
+
+    # ------------------------------------------------------------------
+    # Pantallas
+    # ------------------------------------------------------------------
+
+    @http.route('/agrogood/ventas', type='http', auth='user', website=False)
+    def ventas_home(self, **kw):
+        if not self._es_ventas():
+            return request.redirect('/agrogood/app')
+        SO = request.env['sale.order']
+        hoy = SO.search([('date_order', '>=', self._hoy()),
+                         ('state', 'in', ('sale', 'done'))], order='date_order desc')
+        return request.render('agrogood_pwa.ventas_home', {
+            'pedidos': hoy,
+            'total_hoy': sum(hoy.mapped('amount_untaxed')),
+            'llamar': request.env['agrogood.followup'].search(
+                [('state', '=', 'pending')], limit=8),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/ventas/nuevo', type='http', auth='user', website=False)
+    def ventas_nuevo(self, **kw):
+        if not self._es_ventas():
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.ventas_nuevo', {})
+
+    # ------------------------------------------------------------------
+    # Datos
+    # ------------------------------------------------------------------
+
+    @http.route('/agrogood/api/ventas/clientes', type='json', auth='user')
+    def api_clientes(self, q='', **kw):
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        dominio = [('agrogood_business_line_id', '!=', False),
+                   ('parent_id', '=', False)]
+        if q:
+            dominio.append(('name', 'ilike', q))
+        socios = request.env['res.partner'].search(dominio, limit=25, order='name')
+        return [{
+            'id': s.id,
+            'nombre': s.name,
+            'linea': s.agrogood_business_line_id.name,
+            'direccion': s.street or '',
+            # Se avisa aqui y no al confirmar: enterarse de que no se le puede
+            # facturar cuando el pedido ya esta tomado no sirve de nada.
+            'bloqueado': bool(s.agrogood_billing_blocked),
+            'motivo': s.agrogood_billing_blocker or '',
+        } for s in socios]
+
+    @http.route('/agrogood/api/ventas/productos', type='json', auth='user')
+    def api_productos(self, partner_id, q='', **kw):
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        socio = request.env['res.partner'].browse(int(partner_id))
+        tarifa = socio.property_product_pricelist
+        dominio = [('sale_ok', '=', True)]
+        if q:
+            dominio = ['&', ('sale_ok', '=', True),
+                       '|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+        productos = request.env['product.product'].search(
+            dominio, limit=30, order='name')
+        salida = []
+        for p in productos:
+            precio = tarifa._get_product_price(p, 1.0) if tarifa else p.lst_price
+            salida.append({
+                'id': p.id,
+                'nombre': p.name,
+                'codigo': p.default_code or '',
+                'uom': p.uom_id.name,
+                'precio': round(precio),
+                'stock': round(p.qty_available, 1),
+                'variable': bool(p.agrogood_is_variable_weight),
+                # Un producto sin precio en la tarifa del cliente sale a CERO.
+                # Odoo no lo impide: pone 0 y sigue. Hoy hay 62 productos asi
+                # en la tarifa Minorista y 10 en HORECA, de modo que no es un
+                # caso teorico. Se marca aqui para que la pantalla lo apague, y
+                # se vuelve a comprobar al crear el pedido.
+                'sin_precio': precio <= 0,
+            })
+        return salida
+
+    @http.route('/agrogood/api/ventas/ultimo', type='json', auth='user')
+    def api_ultimo(self, partner_id, **kw):
+        """Lo que este cliente llevo la ultima vez.
+
+        En distribucion el pedido de un cliente cambia poco de una semana a
+        otra. Partir de lo anterior y corregir dos lineas es mucho mas rapido
+        -y se equivoca menos- que teclearlo entero cada vez.
+        """
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        anterior = request.env['sale.order'].search([
+            ('partner_id', 'child_of', int(partner_id)),
+            ('state', 'in', ('sale', 'done')),
+        ], order='date_order desc, id desc', limit=1)
+        if not anterior:
+            return {'ok': False, 'mensaje': _("Este cliente no tiene pedidos anteriores.")}
+        return {
+            'ok': True,
+            'referencia': anterior.name,
+            # Se copian producto y cantidad, NUNCA el precio: el de entonces
+            # puede no ser el de esta semana, y las tarifas cambian los lunes.
+            'lineas': [{'id': l.product_id.id, 'qty': l.product_uom_qty}
+                       for l in anterior.order_line
+                       if l.product_id and not l.display_type],
+        }
+
+    @http.route('/agrogood/api/ventas/crear', type='json', auth='user')
+    def api_crear(self, partner_id, lineas, **kw):
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        if not lineas:
+            return {'ok': False, 'mensaje': _("El pedido no tiene ninguna linea.")}
+        socio = request.env['res.partner'].browse(int(partner_id))
+
+        # La comprobacion se repite en el servidor aunque la pantalla ya apague
+        # esos productos: quien construya la peticion a mano entra igual, y
+        # regalar mercaderia es un error que no se descubre hasta el cierre del
+        # mes. El aviso nombra el producto y la tarifa, que es lo que hace
+        # falta para arreglarlo.
+        tarifa = socio.property_product_pricelist
+        Prod = request.env['product.product']
+        sin_precio = []
+        for l in lineas:
+            prod = Prod.browse(int(l['id']))
+            if not tarifa or tarifa._get_product_price(prod, 1.0) <= 0:
+                sin_precio.append(prod.display_name)
+        if sin_precio:
+            salto = chr(10)
+            return {'ok': False, 'mensaje': _(
+                "Estos productos no tienen precio en la tarifa %(tarifa)s y "
+                "saldrian a cero:%(salto)s%(productos)s%(salto)s%(salto)s"
+                "Ponles precio antes de venderlos.",
+                tarifa=tarifa.name if tarifa else _('del cliente'),
+                salto=salto,
+                productos=salto.join('  - ' + n for n in sin_precio))}
+
+        try:
+            pedido = request.env['sale.order'].create({
+                'partner_id': socio.id,
+                'order_line': [(0, 0, {
+                    'product_id': int(l['id']),
+                    'product_uom_qty': float(l['qty']),
+                }) for l in lineas if float(l.get('qty') or 0) > 0],
+            })
+            pedido.action_confirm()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        estados = dict(pedido._fields['agrogood_state'].selection)
+        return {
+            'ok': True,
+            'id': pedido.id,
+            'nombre': pedido.name,
+            'total': round(pedido.amount_untaxed),
+            'estado': estados.get(pedido.agrogood_state, ''),
+            # Cuantas lineas no tienen stock suficiente. Ventas se entera
+            # en el momento de tomar el pedido, no al dia siguiente cuando
+            # Bodega no encuentra la mercaderia.
+            'faltantes': sum(1 for l in pedido.order_line
+                             if l.agrogood_shortage_qty > 0),
+        }

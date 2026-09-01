@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Pantallas propias de Ventas.
+
+        Reutilizan la envoltura `agrogood_pwa.layout`, la misma del Picker y el
+        Conductor: una sola hoja de estilos, una sola cabecera, un solo sitio
+        donde cambiar el aspecto de todo. La alternativa -una interfaz por
+        rol- se ve bien el primer mes y se vuelve inmantenible el segundo.
+    -->
+
+    <!-- ================= ELEGIR PANTALLA ================= -->
+    <!--
+        Solo aparece cuando alguien tiene mas de un acceso. En Agrogood los
+        roles se acumulan por necesidad: el encargado de bodega tambien prepara,
+        y el jefe de logistica hereda ambos. Mandarles siempre a la misma
+        pantalla, la del primer rol que coincida, deja a media plantilla
+        entrando donde no trabaja.
+    -->
+    <template id="elegir" name="Elegir pantalla">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Agroapp</t>
+            <h2 class="ag-h2">Que vas a hacer</h2>
+            <t t-foreach="accesos" t-as="a">
+                <a t-att-href="a['url']" class="ag-card">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="a['nombre']"/></span>
+                        <span class="ag-card-sub"><t t-esc="a['sub']"/></span>
+                    </div>
+                    <span class="ag-chip">Entrar</span>
+                </a>
+            </t>
+        </t>
+    </template>
+
+    <!-- ================= VENTAS: EL DIA ================= -->
+
+    <template id="ventas_home" name="Ventas - el dia">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Ventas</t>
+
+            <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
+                Tomar un pedido
+            </a>
+
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="len(pedidos)"/></span>
+                    <span class="ag-dato-txt">pedidos hoy</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(total_hoy).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">vendido, sin IVA</span>
+                </div>
+            </div>
+
+            <t t-if="llamar">
+                <h2 class="ag-h2">A quien llamar hoy</h2>
+                <t t-foreach="llamar" t-as="f">
+                    <div class="ag-card">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="f.partner_id.name"/></span>
+                            <span class="ag-card-sub">
+                                <t t-esc="dict(f._fields['reason'].selection).get(f.reason, '')"/>
+                                <t t-if="f.last_order_products">
+                                    · llevo <t t-esc="f.last_order_products[:38]"/>
+                                </t>
+                            </span>
+                        </div>
+                        <span t-att-class="'ag-chip ag-chip-warn' if f.priority == '1' else 'ag-chip'">
+                            <t t-esc="'Urgente' if f.priority == '1' else 'Normal'"/>
+                        </span>
+                    </div>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Pedidos de hoy</h2>
+            <t t-if="not pedidos">
+                <p class="ag-muted ag-pad">Todavia no se ha tomado ninguno.</p>
+            </t>
+            <t t-foreach="pedidos" t-as="p">
+                <div class="ag-card">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="p.partner_id.name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="p.name"/> ·
+                            <t t-esc="dict(p._fields['agrogood_state'].selection).get(p.agrogood_state, '')"/>
+                        </span>
+                    </div>
+                    <span class="ag-chip ag-chip-soft">
+                        <t t-esc="'{:,.0f}'.format(p.amount_untaxed).replace(',', '.')"/>
+                    </span>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- ================= VENTAS: TOMAR PEDIDO ================= -->
+    <!--
+        Tres etapas en una sola pagina: cliente, productos, confirmar. No son
+        tres paginas porque tomar un pedido se hace con el cliente hablando por
+        telefono, y cada carga es un silencio incomodo en el que hay que decir
+        "espera un segundo".
+    -->
+
+    <template id="ventas_nuevo" name="Ventas - tomar pedido">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Nuevo pedido</t>
+            <t t-set="volver">/agrogood/ventas</t>
+
+            <!-- Etapa 1: el cliente -->
+            <section id="et-cliente" class="ag-etapa">
+                <input type="search" id="q-cliente" class="ag-buscar"
+                       placeholder="Buscar cliente" autocomplete="off"/>
+                <div id="lista-clientes"></div>
+            </section>
+
+            <!-- Etapa 2: los productos -->
+            <section id="et-productos" class="ag-etapa ag-oculto">
+                <div id="cabecera-cliente" class="ag-head-block"></div>
+
+                <div class="ag-actions">
+                    <button type="button" id="btn-repetir" class="ag-btn ag-btn-ghost">
+                        Repetir su ultimo pedido
+                    </button>
+                </div>
+
+                <input type="search" id="q-producto" class="ag-buscar"
+                       placeholder="Buscar producto" autocomplete="off"/>
+                <div id="lista-productos"></div>
+            </section>
+
+            <!-- Pie fijo con el total y el boton de confirmar -->
+            <div id="pie" class="ag-pie ag-oculto">
+                <div class="ag-pie-datos">
+                    <span id="pie-lineas">0 lineas</span>
+                    <strong id="pie-total">0</strong>
+                </div>
+                <button type="button" id="btn-confirmar" class="ag-btn ag-btn-primary">
+                    Confirmar
+                </button>
+            </div>
+
+            <!-- Etapa 3: hecho -->
+            <section id="et-hecho" class="ag-etapa ag-oculto">
+                <div class="ag-done-banner" id="hecho-texto"></div>
+                <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
+                    Tomar otro pedido
+                </a>
+                <a href="/agrogood/ventas" class="ag-btn ag-btn-ghost">Volver al dia</a>
+            </section>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/ventas.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/ventas.js?v=#{v}"/>
+        </t>
+    </template>
+
+</odoo>

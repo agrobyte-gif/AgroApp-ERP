@@ -31,6 +31,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
         'security/ir.model.access.csv',
         'security/agrogood_pwa_security.xml',
         'views/templates.xml',
+        'views/ventas_templates.xml',
     ],
     'installable': True,
 }

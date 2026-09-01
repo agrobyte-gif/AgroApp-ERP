@@ -226,3 +226,55 @@ body {
   * { transition: none !important; }
   .ag-btn:active { transform: none; }
 }
+
+/* =====================================================================
+   Ventas. Mismos componentes que el resto de la app; solo se anaden los
+   que esta pantalla necesita y no existian.
+   ===================================================================== */
+
+.ag-oculto { display: none !important; }
+
+.ag-buscar {
+  width: 100%; padding: 14px 16px; font-size: 17px; margin: 12px 0;
+  border: 1px solid var(--ag-linea); border-radius: 10px;
+  background: #fff; color: var(--ag-tinta);
+}
+.ag-buscar:focus { outline: 2px solid var(--ag-700); outline-offset: 1px; }
+
+/* Resumen del dia: dos numeros grandes y nada mas. Quien abre esta pantalla
+   entre llamada y llamada mira una cosa, no un tablero. */
+.ag-resumen { display: flex; gap: 10px; margin: 14px 0 4px; }
+.ag-dato {
+  flex: 1; background: #fff; border: 1px solid var(--ag-linea);
+  border-radius: 12px; padding: 14px; text-align: center;
+}
+.ag-dato-num { display: block; font-size: 26px; font-weight: 700; color: var(--ag-800); }
+.ag-dato-txt { display: block; font-size: 12px; color: var(--ag-tinta-3); margin-top: 2px; }
+
+.ag-precio { font-weight: 600; color: var(--ag-800); white-space: nowrap; }
+
+.ag-line-puesta { border-color: var(--ag-700); background: var(--ag-50); }
+
+.ag-btn-qty {
+  min-width: 46px; padding: 10px 0; font-size: 20px; line-height: 1;
+}
+
+/* Pie fijo: el total y el boton de confirmar siempre a la vista. Tomar un
+   pedido largo obligaria si no a bajar hasta el final para saber cuanto va. */
+.ag-pie {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin: 16px -14px -14px;
+  background: #fff; border-top: 1px solid var(--ag-linea);
+  box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+}
+.ag-pie-datos { display: flex; flex-direction: column; line-height: 1.25; }
+.ag-pie-datos span { font-size: 12px; color: var(--ag-tinta-3); }
+.ag-pie-datos strong { font-size: 20px; color: var(--ag-800); }
+.ag-pie .ag-btn { margin-left: auto; margin-bottom: 0; }
+
+
+/* Producto sin precio en la tarifa del cliente: se ve, para que Ventas sepa
+   que existe y hay que arreglarlo, pero no se puede anadir al pedido. */
+.ag-line-sin-precio { opacity: .72; background: var(--ag-ambar-claro); }
+.ag-line-sin-precio .ag-precio { color: var(--ag-ambar); font-weight: 600; }
