@@ -278,3 +278,17 @@ body {
    que existe y hay que arreglarlo, pero no se puede anadir al pedido. */
 .ag-line-sin-precio { opacity: .72; background: var(--ag-ambar-claro); }
 .ag-line-sin-precio .ag-precio { color: var(--ag-ambar); font-weight: 600; }
+
+/* Revision del vehiculo: casillas grandes. Se marcan con guantes y con el
+   telefono en una mano, asi que toda la fila es zona de toque. */
+.ag-check {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 14px; margin-bottom: 8px;
+  background: #fff; border: 1px solid var(--ag-linea);
+  border-radius: var(--ag-radio); cursor: pointer;
+}
+.ag-check-input { width: 26px; height: 26px; flex: 0 0 26px; accent-color: var(--ag-700); }
+.ag-check-txt { font-size: 16px; }
+.ag-check:has(.ag-check-input:not(:checked)) {
+  border-color: var(--ag-rojo); background: var(--ag-rojo-claro);
+}

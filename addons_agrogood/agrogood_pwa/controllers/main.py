@@ -17,6 +17,11 @@ from odoo import _, fields, http
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.http import request
 
+# Los puntos de la revision viven en agrogood_logistics, que es de donde
+# son. Se importan en lugar de repetirlos aqui: dos listas que hay que
+# mantener iguales acaban siendo distintas.
+from odoo.addons.agrogood_logistics.models.agrogood_vehicle_check import PUNTOS
+
 
 class AgrogoodPwa(http.Controller):
 
@@ -237,6 +242,59 @@ class AgrogoodPwa(http.Controller):
         except (UserError, ValidationError) as e:
             return self._respuesta(False, str(e))
         return self._respuesta(True, _("Ruta iniciada. Buen viaje."))
+
+    @http.route('/agrogood/driver/route/<int:route_id>/revision',
+                type='http', auth='user', website=False)
+    def driver_revision(self, route_id, **kw):
+        ruta = request.env['agrogood.route'].browse(int(route_id))
+        ruta.check_access('read')
+        if ruta.driver_id != request.env.user:
+            return request.redirect('/agrogood/driver')
+        return request.render('agrogood_pwa.driver_revision', {
+            'ruta': ruta,
+            'puntos': PUNTOS,
+            'hecha': ruta.check_ids[:1],
+        })
+
+    @http.route('/agrogood/api/driver/revision', type='json', auth='user')
+    def api_revision(self, route_id, marcados, note=None, odometer=None, **kw):
+        """Guarda la revision del vehiculo antes de salir.
+
+        Se autoriza con la identidad real -la ruta tiene que ser suya- y se
+        escribe elevado, porque crear el documento toca el historial de la ruta
+        y un conductor no tiene por que poder escribir en ella.
+        """
+        ruta = request.env['agrogood.route'].browse(int(route_id))
+        ruta.check_access('read')
+        if ruta.driver_id != request.env.user:
+            return self._respuesta(False, _("Esta ruta no es tuya."))
+        if not ruta.vehicle_id:
+            return self._respuesta(False, _(
+                "La ruta no tiene vehiculo asignado. Avisa a Logistica."))
+        if ruta.check_ids:
+            return self._respuesta(False, _("Esta ruta ya tiene su revision."))
+
+        vals = {
+            'route_id': ruta.id,
+            'vehicle_id': ruta.vehicle_id.id,
+            'driver_id': request.env.user.id,
+            'note': (note or '').strip(),
+        }
+        if odometer:
+            vals['odometer'] = float(odometer)
+        marcados = set(marcados or [])
+        for clave, _etiqueta in PUNTOS:
+            vals['check_%s' % clave] = clave in marcados
+        try:
+            revision = request.env['agrogood.vehicle.check'].sudo().create(vals)
+        except (UserError, ValidationError) as e:
+            return self._respuesta(False, str(e))
+        return self._respuesta(
+            True,
+            _("Revision guardada. Ya puedes iniciar la ruta.")
+            if revision.state == 'ok'
+            else _("Revision guardada con novedad. Logistica ya tiene el aviso."),
+            estado=revision.state)
 
     @http.route('/agrogood/api/driver/stop', type='json', auth='user')
     def api_parada(self, stop_id, accion, received_by=None, note=None,

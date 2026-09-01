@@ -10,3 +10,7 @@ access_stop_driver,parada conductor,model_agrogood_route_stop,agrogood_base.grou
 access_stop_sales,parada ventas lectura,model_agrogood_route_stop,agrogood_base.group_agrogood_sales,1,0,0,0
 access_stop_admin,parada admin general,model_agrogood_route_stop,agrogood_base.group_agrogood_general_admin,1,1,1,1
 access_addpick_logistics,asistente anadir albaranes,model_agrogood_route_add_pickings,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_check_logistics,revision logistica,model_agrogood_vehicle_check,agrogood_base.group_agrogood_logistics_manager,1,1,1,1
+access_check_driver,revision conductor,model_agrogood_vehicle_check,agrogood_base.group_agrogood_driver,1,1,1,0
+access_check_warehouse,revision bodega lectura,model_agrogood_vehicle_check,agrogood_base.group_agrogood_warehouse,1,0,0,0
+access_check_admin,revision admin general,model_agrogood_vehicle_check,agrogood_base.group_agrogood_general_admin,1,1,1,1

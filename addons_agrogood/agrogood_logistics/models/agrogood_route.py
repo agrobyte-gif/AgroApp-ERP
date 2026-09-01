@@ -46,6 +46,10 @@ class AgrogoodRoute(models.Model):
         string="Paradas",
     )
     note = fields.Text(string="Instrucciones para el conductor")
+    check_ids = fields.One2many(
+        comodel_name='agrogood.vehicle.check', inverse_name='route_id',
+        string="Revision del vehiculo",
+    )
 
     date_start = fields.Datetime(string="Salida", readonly=True, tracking=True)
     date_end = fields.Datetime(string="Regreso", readonly=True, tracking=True)
@@ -197,6 +201,16 @@ class AgrogoodRoute(models.Model):
         for r in self:
             if r.state != 'planned':
                 raise UserError(_("La ruta %s no esta planificada.", r.name))
+            # La revision del vehiculo bloquea la salida, no avisa. Una
+            # revision que se puede saltar deja de hacerse la segunda semana, y
+            # entonces solo sirve para creer que se esta revisando. Son seis
+            # toques en el telefono del conductor.
+            if not r.check_ids:
+                raise UserError(_(
+                    "Antes de salir hay que revisar el vehiculo de la ruta "
+                    "%(ruta)s. El conductor la hace desde la aplicacion, en su "
+                    "pantalla de reparto, y son seis comprobaciones.",
+                    ruta=r.name))
             r.write({'state': 'in_progress', 'date_start': fields.Datetime.now()})
             r.stop_ids.filtered(lambda s: s.state == 'pending').write(
                 {'state': 'on_the_way'})

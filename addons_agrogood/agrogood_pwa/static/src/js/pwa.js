@@ -163,6 +163,36 @@
                 }));
             });
 
+        /* Revision del vehiculo antes de salir. Todas las casillas nacen
+           marcadas: lo normal es que el camion este bien, y obligar a marcar
+           seis veces lo que casi siempre se cumple convierte la revision en un
+           tramite. Aqui se DESMARCA lo que falla. */
+        const btnRevision = document.querySelector("[data-action='revision']");
+        if (btnRevision) {
+            btnRevision.addEventListener("click", () => conBloqueo(btnRevision, async () => {
+                const marcados = Array.from(
+                    document.querySelectorAll(".ag-check-input:checked")
+                ).map((c) => c.value);
+                const nota = (document.getElementById("ag-revision-nota").value || "").trim();
+                const km = document.getElementById("ag-odometro").value;
+                const total = document.querySelectorAll(".ag-check-input").length;
+                if (marcados.length < total && !nota) {
+                    return aviso("Desmarcaste algo: cuenta que encontraste.", true);
+                }
+                const r = await llamar("/agrogood/api/driver/revision", {
+                    route_id: +btnRevision.dataset.route,
+                    marcados: marcados,
+                    note: nota,
+                    odometer: km ? parseFloat(km) : null,
+                });
+                if (!r.ok) return aviso(r.mensaje, true);
+                aviso(r.mensaje, r.estado === "warning");
+                setTimeout(() => {
+                    location.href = "/agrogood/driver/route/" + btnRevision.dataset.route;
+                }, 1200);
+            }));
+        }
+
         const zona = document.querySelector(".ag-stop-actions");
         if (!zona) return;
         const stopId = +zona.dataset.stop;

@@ -222,10 +222,24 @@
             </div>
 
             <t t-if="ruta.state == 'planned'">
-                <button class="ag-btn ag-btn-primary ag-btn-xl"
-                        t-att-data-route="ruta.id" data-action="route_start">
-                    Iniciar ruta
-                </button>
+                <t t-if="not ruta.check_ids">
+                    <a t-att-href="'/agrogood/driver/route/%s/revision' % ruta.id"
+                       class="ag-btn ag-btn-primary ag-btn-xl">Revisar el vehiculo</a>
+                    <p class="ag-muted ag-pad">
+                        Seis comprobaciones antes de salir. Sin ellas la ruta no arranca.
+                    </p>
+                </t>
+                <t t-else="">
+                    <button class="ag-btn ag-btn-primary ag-btn-xl"
+                            t-att-data-route="ruta.id" data-action="route_start">
+                        Iniciar ruta
+                    </button>
+                    <p t-if="ruta.check_ids[0].state == 'warning'" class="ag-warn">
+                        La revision salio con novedad:
+                        <t t-esc="', '.join(ruta.check_ids[0].problemas())"/>.
+                        Logistica ya tiene el aviso.
+                    </p>
+                </t>
             </t>
 
             <t t-foreach="ruta.stop_ids" t-as="s">
@@ -327,4 +341,54 @@
         </t>
     </template>
 
+    <!-- ============ CONDUCTOR: REVISION DEL VEHICULO ============ -->
+    <!--
+        Seis comprobaciones, un toque cada una. Todas empiezan marcadas: lo
+        normal es que el camion este bien, y obligar a marcar seis veces lo que
+        casi siempre se cumple convierte la revision en un tramite que se
+        despacha sin mirar. Aqui se DESMARCA lo que falla, que es el gesto que
+        obliga a fijarse.
+    -->
+    <template id="driver_revision" name="Conductor - revision del vehiculo">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Revisar el vehiculo</t>
+            <t t-set="volver" t-value="'/agrogood/driver/route/%s' % ruta.id"/>
+
+            <div class="ag-head-block">
+                <div class="ag-client"><t t-esc="ruta.vehicle_id.name or 'Sin vehiculo'"/></div>
+                <div class="ag-muted"><t t-esc="ruta.name"/></div>
+            </div>
+
+            <t t-if="hecha">
+                <div class="ag-done-banner">
+                    Ya se reviso este vehiculo para esta ruta.
+                </div>
+            </t>
+            <t t-else="">
+                <p class="ag-muted ag-pad">
+                    Desmarca lo que NO este bien. Si desmarcas algo, cuenta que
+                    encontraste.
+                </p>
+
+                <t t-foreach="puntos" t-as="punto">
+                    <label class="ag-check">
+                        <input type="checkbox" checked="checked"
+                               t-att-value="punto[0]" class="ag-check-input"/>
+                        <span class="ag-check-txt"><t t-esc="punto[1]"/></span>
+                    </label>
+                </t>
+
+                <input type="number" id="ag-odometro" class="ag-buscar"
+                       placeholder="Kilometraje (opcional)" inputmode="numeric"/>
+
+                <textarea id="ag-revision-nota" class="ag-note-box"
+                          placeholder="Que encontraste. Obligatorio si desmarcaste algo."/>
+
+                <button class="ag-btn ag-btn-primary ag-btn-xl"
+                        t-att-data-route="ruta.id" data-action="revision">
+                    Guardar revision
+                </button>
+            </t>
+        </t>
+    </template>
 </odoo>

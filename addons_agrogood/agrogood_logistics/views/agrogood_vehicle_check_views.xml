@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="vehicle_check_view_list" model="ir.ui.view">
+        <field name="name">agrogood.vehicle.check.list</field>
+        <field name="model">agrogood.vehicle.check</field>
+        <field name="arch" type="xml">
+            <list string="Revisiones del vehiculo"
+                  decoration-danger="state == 'warning'">
+                <field name="date"/>
+                <field name="vehicle_id"/>
+                <field name="driver_id"/>
+                <field name="route_id" optional="show"/>
+                <field name="odometer" optional="hide"/>
+                <field name="problem_count" string="Sin pasar"/>
+                <field name="note" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'ok'"
+                       decoration-danger="state == 'warning'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="vehicle_check_view_form" model="ir.ui.view">
+        <field name="name">agrogood.vehicle.check.form</field>
+        <field name="model">agrogood.vehicle.check</field>
+        <field name="arch" type="xml">
+            <form string="Revision del vehiculo">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="vehicle_id"/>
+                            <field name="driver_id"/>
+                            <field name="route_id"/>
+                        </group>
+                        <group>
+                            <field name="date"/>
+                            <field name="odometer"/>
+                            <field name="state" widget="badge"
+                                   decoration-success="state == 'ok'"
+                                   decoration-danger="state == 'warning'"/>
+                        </group>
+                    </group>
+                    <group string="Que se comprobo">
+                        <group>
+                            <field name="check_combustible"/>
+                            <field name="check_neumaticos"/>
+                            <field name="check_luces"/>
+                        </group>
+                        <group>
+                            <field name="check_frenos"/>
+                            <field name="check_frio"/>
+                            <field name="check_carga"/>
+                        </group>
+                    </group>
+                    <group string="Que se encontro">
+                        <field name="note" nolabel="1"
+                               placeholder="Obligatorio si algo no paso la revision."/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="vehicle_check_view_search" model="ir.ui.view">
+        <field name="name">agrogood.vehicle.check.search</field>
+        <field name="model">agrogood.vehicle.check</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="vehicle_id"/>
+                <field name="driver_id"/>
+                <filter name="con_novedad" string="Con novedad"
+                        domain="[('state', '=', 'warning')]"/>
+                <filter name="hoy" string="De hoy"
+                        domain="[('date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)))]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_vehiculo" string="Vehiculo"
+                            context="{'group_by': 'vehicle_id'}"/>
+                    <filter name="g_conductor" string="Conductor"
+                            context="{'group_by': 'driver_id'}"/>
+                    <filter name="g_resultado" string="Resultado"
+                            context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="vehicle_check_action" model="ir.actions.act_window">
+        <field name="name">Revisiones del vehiculo</field>
+        <field name="res_model">agrogood.vehicle.check</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_hoy': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavia no hay revisiones</p>
+            <p>
+                El conductor las hace desde su telefono, antes de salir. Aqui
+                queda el historial: el mismo camion fallando en lo mismo tres
+                veces en un mes es lo que conviene ver, y eso no lo dice
+                ninguna anotacion suelta.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_vehicle_check" name="Revisiones del vehiculo"
+              parent="agrogood_picking_ops.menu_agrogood_operations"
+              action="vehicle_check_action" sequence="35"/>
+
+</odoo>

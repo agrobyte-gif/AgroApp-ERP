@@ -32,6 +32,7 @@ modo que conectarlo sera escribir el cuerpo de un metodo y no rediseniar nada.
         'data/ir_sequence.xml',
         'views/agrogood_route_views.xml',
         'views/fleet_vehicle_views.xml',
+        'views/agrogood_vehicle_check_views.xml',
         'wizard/agrogood_route_add_pickings_views.xml',
         'views/menus.xml',
     ],

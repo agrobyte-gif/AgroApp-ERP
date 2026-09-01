@@ -221,11 +221,49 @@ paso(10, "Logistica arma la ruta y asigna conductor y vehiculo",
      f"{ruta.name}: {ruta.estimated_weight:.0f} kg de {ruta.vehicle_capacity:.0f} "
      f"({ruta.capacity_usage:.0f}% del camion); estado: {E(pedido)}")
 
+# --- 10 bis. La revision del vehiculo ---------------------------------------
+# Bloquea la salida a proposito: una revision que se puede saltar deja de
+# hacerse la segunda semana. Se comprueba primero que de verdad bloquea, porque
+# un candado que no cierra es peor que no tener candado -da la sensacion de que
+# el camion se revisa-.
+try:
+    ruta.action_start()
+    bloquea = False
+except UserError:
+    bloquea = True
+paso(11, "Sin revisar el vehiculo, la ruta no arranca", bloquea,
+     "la salida queda bloqueada hasta que el conductor la haga")
+
+revision = env['agrogood.vehicle.check'].create({
+    'route_id': ruta.id,
+    'vehicle_id': ruta.vehicle_id.id,
+    'driver_id': ruta.driver_id.id,
+    'check_combustible': True, 'check_neumaticos': True, 'check_luces': True,
+    'check_frenos': True, 'check_frio': True, 'check_carga': True,
+})
+paso(12, "El conductor revisa el vehiculo y queda sin novedad",
+     revision.state == 'ok' and revision.problem_count == 0,
+     f"{revision.name}: los seis puntos pasan")
+
+# Y marcar un fallo sin explicarlo tampoco se admite: Logistica veria que algo
+# pasa sin saber que, con el camion ya en la calle.
+try:
+    env['agrogood.vehicle.check'].create({
+        'vehicle_id': ruta.vehicle_id.id, 'driver_id': ruta.driver_id.id,
+        'check_combustible': True, 'check_neumaticos': True, 'check_luces': True,
+        'check_frenos': False, 'check_frio': True, 'check_carga': True,
+    })
+    exige = False
+except UserError:
+    exige = True
+paso(13, "Marcar un fallo obliga a decir cual", exige,
+     "sin explicacion, la revision no se guarda")
+
 # --- 11. En ruta ------------------------------------------------------------
 ruta.action_start()
 pedido.invalidate_recordset()
 parada = ruta.stop_ids[0]
-paso(11, "El conductor sale y el pedido queda en ruta",
+paso(14, "El conductor sale y el pedido queda en ruta",
      pedido.agrogood_state == 'in_route',
      f"parada 1: {parada.partner_id.name}, {parada.street or 's/d'} "
      f"({parada.scheduled_time})")
@@ -239,12 +277,12 @@ parada.action_delivered()
 pedido.invalidate_recordset()
 salida.invalidate_recordset()
 n_espera = env['stock.picking'].search_count([('backorder_id', '=', salida.id)])
-paso(12, "Entrega registrada con evidencia y stock descontado",
+paso(15, "Entrega registrada con evidencia y stock descontado",
      parada.state == 'delivered' and salida.state == 'done'
      and pedido.agrogood_state == 'delivered',
      f"recibido por {parada.received_by}; albaran {salida.state}; "
      f"entregados {pedido.order_line[0].qty_delivered:g} kg")
-paso(13, "Peso variable: no queda ningun albaran fantasma",
+paso(16, "Peso variable: no queda ningun albaran fantasma",
      n_espera == 0,
      f"pedidos en espera creados por los 1,4 kg de diferencia: {n_espera}")
 
@@ -253,7 +291,7 @@ factura = pedido._create_invoices()
 factura.action_post()
 pedido.invalidate_recordset()
 linea_tom = factura.invoice_line_ids.filtered(lambda l: l.product_id == tomate)
-paso(14, "Se factura lo entregado, no lo pedido",
+paso(17, "Se factura lo entregado, no lo pedido",
      abs(linea_tom.quantity - 28.6) < 0.01 and pedido.agrogood_state == 'invoiced',
      f"{factura.name}: {linea_tom.quantity:g} kg de tomate (no 30); "
      f"total {factura.amount_total:,.0f} CLP")
@@ -262,7 +300,7 @@ paso(14, "Se factura lo entregado, no lo pedido",
 cliente._agrogood_recompute_metrics()
 cliente.invalidate_recordset()
 tenia = cliente.agrogood_order_count
-paso(15, "El CRM registra el comportamiento del cliente",
+paso(18, "El CRM registra el comportamiento del cliente",
      cliente.agrogood_order_count > 0 and cliente.agrogood_last_order_date,
      f"{tenia} pedidos; ticket medio {cliente.agrogood_avg_ticket:,.0f} CLP; "
      f"situacion: {dict(cliente._fields['agrogood_customer_status'].selection)[cliente.agrogood_customer_status]}; "
@@ -275,14 +313,14 @@ cliente.invalidate_recordset()
 FUP.search([('partner_id', '=', cliente.id)]).unlink()
 FUP._cron_generar_seguimientos()
 seg = FUP.search([('partner_id', '=', cliente.id)], limit=1)
-paso(16, "El sistema sabe cuando volver a contactarlo",
+paso(19, "El sistema sabe cuando volver a contactarlo",
      seg and seg.reason in ('same_weekday', 'expected_day'),
      f"{dict(seg._fields['reason'].selection)[seg.reason] if seg else 'sin seguimiento'}"
      + (f"; llevo: {(seg.last_order_products or '')[:34]}" if seg else ""))
 
 pedido.action_agrogood_close()
 pedido.invalidate_recordset()
-paso(17, "El pedido se cierra", pedido.agrogood_state == 'closed', E(pedido))
+paso(20, "El pedido se cierra", pedido.agrogood_state == 'closed', E(pedido))
 
 # --- 18. Los avisos de pantalla ---------------------------------------------
 # Los metodos `onchange` SOLO se ejecutan desde el navegador: ninguna prueba de
@@ -327,7 +365,7 @@ for _modelo in sorted(env.registry.models):
                 rotos.append('%s.%s -> %s' % (_modelo, _nombre, _e))
             except Exception:
                 pass
-paso(18, 'Los avisos de pantalla no apuntan a campos que ya no existen',
+paso(21, 'Los avisos de pantalla no apuntan a campos que ya no existen',
      not rotos,
      ('%d onchange propios revisados' % revisados) if not rotos
      else ' | '.join(rotos)[:150])
