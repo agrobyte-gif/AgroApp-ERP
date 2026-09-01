@@ -85,6 +85,7 @@ defecto y solo escriben cuando se les pasa una variable de entorno explícita:
 | `limpiar_permisos_sobrantes.py` | **Obligatoria tras instalar cualquier aplicación** |
 | `prueba_bodega.py` | Recibir compras y mermar, con lotes y caducidad |
 | `prueba_logistica.py` | Repartir el trabajo y armar rutas |
+| `prueba_compras.py` | La pizarra: proveedor, precio y orden agrupada |
 | `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
 
 ---

@@ -58,6 +58,12 @@ class AgrogoodPwa(http.Controller):
                 'sub': "Tomar pedidos y ver el dia",
                 'url': '/agrogood/ventas',
             })
+        if tiene('group_agrogood_purchase'):
+            accesos.append({
+                'clave': 'compras', 'nombre': "Compras",
+                'sub': "La pizarra: que hay que conseguir",
+                'url': '/agrogood/compras',
+            })
         if tiene('group_agrogood_logistics_manager'):
             accesos.append({
                 'clave': 'logistica', 'nombre': "Logistica",
@@ -945,3 +951,144 @@ class AgrogoodLogistica(http.Controller):
                          ruta=ruta.name, n=len(picking_ids),
                          kg=round(ruta.estimated_weight)),
         }
+
+
+class AgrogoodCompras(http.Controller):
+    """Pizarra de Compras en el telefono.
+
+    Johan trabaja en la feria, de pie, con una mano ocupada. La pizarra del
+    escritorio esta bien para planificar la semana; para decidir a quien se le
+    compra el tomate mientras se lo estan ofreciendo, hace falta ver la
+    solicitud, anotar proveedor y precio, y seguir.
+
+    Se reutiliza el modelo y sus acciones. Lo que cambia es que caben en una
+    pantalla y en dos toques.
+    """
+
+    def _es_compras(self):
+        u = request.env.user
+        return (u.has_group('agrogood_base.group_agrogood_purchase')
+                or u.has_group('agrogood_base.group_agrogood_general_admin'))
+
+    def _mi_solicitud(self, request_id):
+        s = request.env['agrogood.purchase.request'].browse(int(request_id))
+        s.check_access('read')
+        return s
+
+    @http.route('/agrogood/compras', type='http', auth='user', website=False)
+    def compras_home(self, **kw):
+        if not self._es_compras():
+            return request.redirect('/agrogood/app')
+        Req = request.env['agrogood.purchase.request']
+        abiertas = Req.search(
+            [('state', 'in', ('pending', 'searching', 'quoting', 'partial'))],
+            order='priority desc, date_needed, id')
+        return request.render('agrogood_pwa.compras_home', {
+            # El orden lo decide la urgencia, no la fecha de creacion: lo que
+            # se necesita hoy va arriba aunque se haya pedido esta manana.
+            'urgentes': abiertas.filtered(
+                lambda r: r.priority == '1' or r.is_late),
+            'resto': abiertas.filtered(
+                lambda r: r.priority != '1' and not r.is_late),
+            'listas_para_orden': abiertas.filtered(
+                lambda r: r.supplier_id and not r.purchase_order_id),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/compras/<int:request_id>', type='http', auth='user',
+                website=False)
+    def compras_solicitud(self, request_id, **kw):
+        if not self._es_compras():
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.compras_solicitud', {
+            'sol': self._mi_solicitud(request_id),
+        })
+
+    @http.route('/agrogood/api/compras/proveedores', type='json', auth='user')
+    def api_proveedores(self, q='', **kw):
+        if not self._es_compras():
+            raise AccessError(_("No tienes permiso de Compras."))
+        dominio = [('supplier_rank', '>', 0)]
+        if q:
+            dominio = ['&', ('supplier_rank', '>', 0), ('name', 'ilike', q)]
+        return [{'id': p.id, 'nombre': p.name}
+                for p in request.env['res.partner'].search(
+                    dominio, limit=20, order='name')]
+
+    @http.route('/agrogood/api/compras/anotar', type='json', auth='user')
+    def api_anotar(self, request_id, supplier_id=None, price=None, note=None, **kw):
+        """Anota proveedor y precio sin cambiar de estado.
+
+        Son los dos datos que Johan consigue en la feria y los unicos que hacen
+        falta para poder generar la orden despues. Se guardan por separado del
+        cambio de estado porque se consiguen en momentos distintos: primero se
+        pregunta el precio, y solo despues se decide si se compra.
+        """
+        if not self._es_compras():
+            raise AccessError(_("No tienes permiso de Compras."))
+        sol = self._mi_solicitud(request_id)
+        vals = {}
+        if supplier_id:
+            vals['supplier_id'] = int(supplier_id)
+        if price is not None and price != '':
+            vals['expected_price'] = float(price)
+        if note is not None:
+            vals['note'] = (note or '').strip()
+        if not vals:
+            return {'ok': False, 'mensaje': _("No hay nada que anotar.")}
+        try:
+            sol.sudo().write(vals)
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {'ok': True, 'mensaje': _("Anotado en %s.", sol.name)}
+
+    @http.route('/agrogood/api/compras/estado', type='json', auth='user')
+    def api_estado(self, request_id, accion, **kw):
+        if not self._es_compras():
+            raise AccessError(_("No tienes permiso de Compras."))
+        sol = self._mi_solicitud(request_id)
+        # Lista blanca: se aceptan solo las acciones de la pizarra. Sin ella,
+        # el nombre del metodo llegaria desde el navegador y cualquiera podria
+        # invocar lo que quisiera del modelo.
+        permitidas = {
+            'buscar': 'action_search',
+            'cotizar': 'action_quote',
+            'no_encontrado': 'action_not_found',
+            'rechazar': 'action_reject',
+            'reabrir': 'action_reset',
+        }
+        metodo = permitidas.get(accion)
+        if not metodo:
+            return {'ok': False, 'mensaje': _("Accion desconocida.")}
+        try:
+            getattr(sol.sudo(), metodo)()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        sol.invalidate_recordset()
+        estados = dict(sol._fields['state'].selection)
+        return {'ok': True, 'estado': estados.get(sol.state, ''),
+                'mensaje': _("%(sol)s: %(estado)s",
+                             sol=sol.name, estado=estados.get(sol.state, ''))}
+
+    @http.route('/agrogood/api/compras/orden', type='json', auth='user')
+    def api_orden(self, request_ids, **kw):
+        """Genera las ordenes al proveedor a partir de las solicitudes.
+
+        Se llama al metodo del modelo, que agrupa por proveedor: pedirle tres
+        productos al mismo son tres lineas de una orden, no tres ordenes.
+        """
+        if not self._es_compras():
+            raise AccessError(_("No tienes permiso de Compras."))
+        if not request_ids:
+            return {'ok': False, 'mensaje': _("No has elegido ninguna solicitud.")}
+        sols = request.env['agrogood.purchase.request'].browse(
+            [int(i) for i in request_ids])
+        sols.check_access('read')
+        try:
+            sols.sudo().action_create_purchase_order()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        ordenes = sols.mapped('purchase_order_id')
+        return {'ok': True, 'mensaje': _(
+            "%(n)s orden(es) al proveedor: %(refs)s",
+            n=len(ordenes), refs=", ".join(ordenes.mapped('name')))}

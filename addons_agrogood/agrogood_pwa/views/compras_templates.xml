@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= COMPRAS: LA PIZARRA ================= -->
+    <!--
+        Lo urgente arriba y separado. Johan mira esta pantalla entre puesto y
+        puesto de la feria: si lo que se necesita hoy esta mezclado con lo de
+        pasado manana, se compra lo que se ve primero.
+    -->
+
+    <template id="compras_home" name="Compras - la pizarra">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Compras</t>
+
+            <t t-if="listas_para_orden">
+                <button class="ag-btn ag-btn-primary ag-btn-xl" data-action="orden-todas"
+                        t-att-data-ids="','.join(str(r.id) for r in listas_para_orden)">
+                    Generar ordenes al proveedor (<t t-esc="len(listas_para_orden)"/>)
+                </button>
+                <p class="ag-muted ag-pad">
+                    Se agrupan por proveedor: tres productos al mismo son una
+                    orden con tres lineas.
+                </p>
+            </t>
+
+            <t t-if="urgentes">
+                <h2 class="ag-h2">Para hoy</h2>
+                <t t-foreach="urgentes" t-as="r">
+                    <a t-att-href="'/agrogood/compras/%s' % r.id" class="ag-card ag-card-active">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="r.product_id.name"/></span>
+                            <span class="ag-card-sub">
+                                <t t-esc="'{:g}'.format(r.qty_requested)"/>
+                                <t t-esc="r.product_uom_id.name"/>
+                                <t t-if="r.partner_id"> · para <t t-esc="r.partner_id.name"/></t>
+                            </span>
+                        </div>
+                        <span class="ag-chip ag-chip-warn">
+                            <t t-esc="'Atrasada' if r.is_late else 'Urgente'"/>
+                        </span>
+                    </a>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Lo demas</h2>
+            <t t-if="not resto">
+                <p class="ag-muted ag-pad">Nada mas pendiente.</p>
+            </t>
+            <t t-foreach="resto" t-as="r">
+                <a t-att-href="'/agrogood/compras/%s' % r.id" class="ag-card">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="r.product_id.name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="'{:g}'.format(r.qty_requested)"/>
+                            <t t-esc="r.product_uom_id.name"/>
+                            <t t-if="r.supplier_id"> · <t t-esc="r.supplier_id.name"/></t>
+                        </span>
+                    </div>
+                    <span class="ag-chip ag-chip-soft">
+                        <t t-esc="dict(r._fields['state'].selection).get(r.state, '')"/>
+                    </span>
+                </a>
+            </t>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/compras.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/compras.js?v=#{v}"/>
+        </t>
+    </template>
+
+    <!-- ================= COMPRAS: UNA SOLICITUD ================= -->
+
+    <template id="compras_solicitud" name="Compras - la solicitud">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Solicitud</t>
+            <t t-set="volver">/agrogood/compras</t>
+
+            <div class="ag-head-block">
+                <div class="ag-client"><t t-esc="sol.product_id.name"/></div>
+                <div class="ag-muted">
+                    <t t-esc="'{:g}'.format(sol.qty_requested)"/>
+                    <t t-esc="sol.product_uom_id.name"/>
+                    <t t-if="sol.date_needed"> · para el <t t-esc="sol.date_needed"/></t>
+                </div>
+                <div class="ag-muted">
+                    <t t-esc="sol.name"/> ·
+                    <t t-esc="dict(sol._fields['state'].selection).get(sol.state, '')"/>
+                </div>
+                <t t-if="sol.partner_id">
+                    <div class="ag-muted">
+                        Es para <strong><t t-esc="sol.partner_id.name"/></strong>
+                        <t t-if="sol.sale_order_id"> (<t t-esc="sol.sale_order_id.name"/>)</t>
+                    </div>
+                </t>
+                <t t-if="sol.reason">
+                    <div class="ag-muted">
+                        Motivo: <t t-esc="dict(sol._fields['reason'].selection).get(sol.reason, '')"/>
+                    </div>
+                </t>
+            </div>
+
+            <!-- Proveedor y precio: los dos datos que se consiguen en la feria -->
+            <select id="proveedor" class="ag-buscar">
+                <option value="">A quien se le compra</option>
+                <t t-if="sol.supplier_id">
+                    <option t-att-value="sol.supplier_id.id" selected="selected">
+                        <t t-esc="sol.supplier_id.name"/>
+                    </option>
+                </t>
+            </select>
+
+            <div class="ag-qty-row">
+                <input type="number" id="precio" class="ag-qty" min="0" step="1"
+                       inputmode="decimal" placeholder="0"
+                       t-att-value="'{:g}'.format(sol.expected_price) if sol.expected_price else ''"/>
+                <span class="ag-uom">precio por <t t-esc="sol.product_uom_id.name"/></span>
+            </div>
+
+            <textarea id="nota" class="ag-note-box" placeholder="Observaciones"
+                      t-esc="sol.note or ''"/>
+
+            <button class="ag-btn ag-btn-primary ag-btn-xl" data-action="anotar"
+                    t-att-data-sol="sol.id">
+                Guardar proveedor y precio
+            </button>
+
+            <h2 class="ag-h2">Como va</h2>
+            <div class="ag-actions">
+                <button class="ag-btn ag-btn-ghost" data-action="estado"
+                        data-accion="buscar" t-att-data-sol="sol.id">Buscando</button>
+                <button class="ag-btn ag-btn-ghost" data-action="estado"
+                        data-accion="cotizar" t-att-data-sol="sol.id">Cotizando</button>
+                <button class="ag-btn ag-btn-warn" data-action="estado"
+                        data-accion="no_encontrado" t-att-data-sol="sol.id">No se encontro</button>
+            </div>
+
+            <t t-if="sol.supplier_id and not sol.purchase_order_id">
+                <button class="ag-btn ag-btn-ok ag-btn-xl" data-action="orden-todas"
+                        t-att-data-ids="str(sol.id)">
+                    Generar la orden al proveedor
+                </button>
+            </t>
+            <t t-if="sol.purchase_order_id">
+                <div class="ag-done-banner">
+                    Ya tiene orden: <t t-esc="sol.purchase_order_id.name"/>
+                </div>
+            </t>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/compras.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/compras.js?v=#{v}"/>
+        </t>
+    </template>
+
+</odoo>
