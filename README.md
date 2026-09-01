@@ -37,7 +37,7 @@ que actualizar Odoo no destruya el trabajo.
 | `agrogood_picking_ops` | Preparación con tiempos, peso real y mermas tipificadas |
 | `agrogood_logistics` | Rutas, conductores, capacidad y evidencia de entrega |
 | `agrogood_tracking` | Ubicación del conductor y mapa de seguimiento |
-| `agrogood_pwa` | Aplicación móvil de Picker y Conductor |
+| `agrogood_pwa` | La aplicación propia: una pantalla por rol |
 | `agrogood_crm_reactivation` | Comportamiento de compra y lista de recontacto |
 | `agrogood_alerts` | Avisos automáticos hacia el responsable de cada cosa |
 | `agrogood_dashboards` | Un panel por rol |
@@ -87,6 +87,7 @@ defecto y solo escriben cuando se les pasa una variable de entorno explícita:
 | `prueba_logistica.py` | Repartir el trabajo y armar rutas |
 | `prueba_compras.py` | La pizarra: proveedor, precio y orden agrupada |
 | `prueba_pagadores.py` | Identidades de pago: RUT y alias del banco |
+| `prueba_direccion.py` | Que las cifras signifiquen lo que dicen |
 | `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
 
 ---

@@ -52,6 +52,12 @@ class AgrogoodPwa(http.Controller):
             return u.has_group('agrogood_base.' + g)
 
         accesos = []
+        if tiene('group_agrogood_general_admin'):
+            accesos.append({
+                'clave': 'direccion', 'nombre': "Direccion",
+                'sub': "Las cifras del dia",
+                'url': '/agrogood/direccion',
+            })
         if tiene('group_agrogood_sales') or tiene('group_agrogood_general_admin'):
             accesos.append({
                 'clave': 'ventas', 'nombre': "Ventas",
@@ -1092,3 +1098,93 @@ class AgrogoodCompras(http.Controller):
         return {'ok': True, 'mensaje': _(
             "%(n)s orden(es) al proveedor: %(refs)s",
             n=len(ordenes), refs=", ".join(ordenes.mapped('name')))}
+
+
+class AgrogoodDireccion(http.Controller):
+    """La pantalla de Direccion.
+
+    Es distinta de las otras cinco y a proposito: aqui NO se opera, se mira.
+    Victor no toma pedidos ni valida albaranes -la matriz de permisos ya se lo
+    impide-, asi que la pantalla no tiene un solo boton que cambie nada.
+
+    Y muestra pocas cifras. Un tablero con veinte indicadores se mira una
+    semana; con seis se mira todos los dias, que es lo que hace que sirva. Las
+    seis elegidas contestan una pregunta cada una:
+
+        cuanto se vendio          - va bien el dia
+        cuanto falta por entregar - se va a cumplir
+        cuanto falta por cobrar   - hay caja
+        cuanto se perdio          - se esta tirando plata
+        a cuantos no se factura   - cuanto de lo vendido no se puede cobrar
+        que esta en la calle      - donde estan los camiones
+
+    El resto de los numeros vive en los paneles del escritorio, que es donde se
+    analiza con tiempo.
+    """
+
+    def _es_direccion(self):
+        return request.env.user.has_group(
+            'agrogood_base.group_agrogood_general_admin')
+
+    @http.route('/agrogood/direccion', type='http', auth='user', website=False)
+    def direccion_home(self, **kw):
+        if not self._es_direccion():
+            return request.redirect('/agrogood/app')
+
+        hoy = fields.Date.context_today(request.env.user)
+        inicio_dia = fields.Datetime.to_string(
+            fields.Datetime.now().replace(hour=0, minute=0, second=0))
+        inicio_mes = hoy.replace(day=1)
+
+        SO = request.env['sale.order']
+        vendidas_hoy = SO.search([('date_order', '>=', inicio_dia),
+                                  ('state', 'in', ('sale', 'done'))])
+        vendidas_mes = SO.search([('date_order', '>=',
+                                   fields.Datetime.to_string(
+                                       fields.Datetime.to_datetime(inicio_mes))),
+                                  ('state', 'in', ('sale', 'done'))])
+
+        # Por entregar: lo confirmado que aun no salio. Es la promesa viva.
+        por_entregar = SO.search([('state', '=', 'sale')]).filtered(
+            lambda o: o.agrogood_state not in ('delivered', 'invoiced', 'closed',
+                                               'cancelled'))
+
+        # Por cobrar. `amount_residual` es lo que queda, no el total: una
+        # factura pagada a medias cuenta solo por su mitad pendiente.
+        Factura = request.env['account.move']
+        impagas = Factura.search([
+            ('move_type', '=', 'out_invoice'), ('state', '=', 'posted'),
+            ('payment_state', 'in', ('not_paid', 'partial')),
+        ])
+        vencidas = impagas.filtered(
+            lambda f: f.invoice_date_due and f.invoice_date_due < hoy)
+
+        mermas = request.env['stock.scrap'].search([
+            ('state', '=', 'done'), ('write_date', '>=',
+                                     fields.Datetime.to_string(
+                                         fields.Datetime.to_datetime(inicio_mes)))])
+
+        Socio = request.env['res.partner']
+        cartera = Socio.search([('agrogood_business_line_id', '!=', False),
+                                ('parent_id', '=', False)])
+
+        return request.render('agrogood_pwa.direccion_home', {
+            'hoy_n': len(vendidas_hoy),
+            'hoy_monto': sum(vendidas_hoy.mapped('amount_untaxed')),
+            'mes_monto': sum(vendidas_mes.mapped('amount_untaxed')),
+            'por_entregar_n': len(por_entregar),
+            'por_entregar_monto': sum(por_entregar.mapped('amount_untaxed')),
+            'por_cobrar': sum(impagas.mapped('amount_residual')),
+            'por_cobrar_n': len(impagas),
+            'vencido': sum(vencidas.mapped('amount_residual')),
+            'vencido_n': len(vencidas),
+            'merma_monto': sum(mermas.mapped('agrogood_cost')),
+            'merma_n': len(mermas),
+            'no_facturables': len(cartera.filtered('agrogood_billing_blocked')),
+            'cartera_n': len(cartera),
+            'rutas': request.env['agrogood.route'].search(
+                [('state', '=', 'in_progress')]),
+            'llamar': request.env['agrogood.followup'].search_count(
+                [('state', '=', 'pending')]),
+            'usuario': request.env.user,
+        })

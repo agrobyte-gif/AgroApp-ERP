@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= DIRECCION ================= -->
+    <!--
+        Seis cifras y ni un boton. Aqui no se opera: se mira. Un tablero con
+        veinte indicadores se mira una semana; con seis se mira todos los dias,
+        que es lo unico que hace que sirva.
+
+        El orden es el del dinero: lo que entro, lo que esta prometido, lo que
+        falta cobrar, lo que se perdio.
+    -->
+
+    <template id="direccion_home" name="Direccion - el dia">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Direccion</t>
+
+            <h2 class="ag-h2">Hoy</h2>
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(hoy_monto).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">vendido, sin IVA</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="hoy_n"/></span>
+                    <span class="ag-dato-txt">ordenes de compra</span>
+                </div>
+            </div>
+
+            <h2 class="ag-h2">Comprometido</h2>
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num"><t t-esc="por_entregar_n"/></span>
+                    <span class="ag-dato-txt">por entregar</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(por_entregar_monto).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">en la calle o en bodega</span>
+                </div>
+            </div>
+
+            <h2 class="ag-h2">Por cobrar</h2>
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(por_cobrar).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">
+                        pendiente en <t t-esc="por_cobrar_n"/> facturas
+                    </span>
+                </div>
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if vencido else ''}">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(vencido).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">
+                        vencido en <t t-esc="vencido_n"/>
+                    </span>
+                </div>
+            </div>
+
+            <h2 class="ag-h2">Lo que se pierde</h2>
+            <div class="ag-resumen">
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if merma_monto else ''}">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(merma_monto).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">
+                        en mermas este mes (<t t-esc="merma_n"/>)
+                    </span>
+                </div>
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if no_facturables else ''}">
+                    <span class="ag-dato-num"><t t-esc="no_facturables"/></span>
+                    <span class="ag-dato-txt">
+                        de <t t-esc="cartera_n"/> sin poder facturar
+                    </span>
+                </div>
+            </div>
+
+            <t t-if="no_facturables">
+                <p class="ag-warn">
+                    A <t t-esc="no_facturables"/> clientes se les puede vender y
+                    repartir, pero no emitirles factura. Se completa en el
+                    escritorio: Paneles, Ventas, Completar RUT de clientes.
+                </p>
+            </t>
+
+            <h2 class="ag-h2">En la calle ahora</h2>
+            <t t-if="not rutas">
+                <p class="ag-muted ag-pad">Ningun camion en ruta.</p>
+            </t>
+            <t t-foreach="rutas" t-as="r">
+                <div class="ag-card ag-card-active">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="r.driver_id.name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="r.name"/> ·
+                            <t t-esc="r.vehicle_id.name or 'sin vehiculo'"/>
+                        </span>
+                    </div>
+                    <span class="ag-chip">
+                        <t t-esc="r.delivered_count"/>/<t t-esc="r.stop_count"/>
+                    </span>
+                </div>
+            </t>
+
+            <t t-if="llamar">
+                <p class="ag-muted ag-pad">
+                    Ventas tiene <strong><t t-esc="llamar"/></strong> clientes
+                    a los que llamar hoy.
+                </p>
+            </t>
+
+            <p class="ag-muted ag-pad">
+                El detalle esta en los paneles del escritorio, que es donde se
+                analiza con tiempo. Esto es para mirarlo entre dos cosas.
+            </p>
+        </t>
+    </template>
+
+</odoo>

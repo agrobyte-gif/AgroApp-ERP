@@ -305,3 +305,9 @@ body {
 }
 
 select.ag-buscar { appearance: none; background-image: none; }
+
+/* Una cifra que va mal se ve sin leerla. Solo se marcan las que exigen una
+   decision -vencido, merma, clientes sin poder facturar-; pintar de rojo todo
+   lo que no es cero convierte el color en ruido. */
+.ag-dato-malo { border-color: var(--ag-rojo); background: var(--ag-rojo-claro); }
+.ag-dato-malo .ag-dato-num { color: var(--ag-rojo); }
