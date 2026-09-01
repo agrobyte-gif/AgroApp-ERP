@@ -88,6 +88,7 @@ defecto y solo escriben cuando se les pasa una variable de entorno explícita:
 | `prueba_compras.py` | La pizarra: proveedor, precio y orden agrupada |
 | `prueba_pagadores.py` | Identidades de pago: RUT y alias del banco |
 | `prueba_direccion.py` | Que las cifras signifiquen lo que dicen |
+| `simulacro_restauracion.py` | **Comprueba que el respaldo se puede restaurar** |
 | `limpiar_datos_prueba.py` | Borrar lo que dejaron las pruebas |
 
 ---
@@ -116,6 +117,27 @@ alta habría nacido pudiendo cambiar precios y ajustar stock.
 El efecto no se ve el día de la instalación. Se ve semanas después, y para
 entonces nadie relaciona una cosa con la otra. `verificar_permisos.py` lo
 comprueba y falla si vuelve a ocurrir.
+
+---
+
+## El respaldo
+
+Se respalda solo todos los días: la base y los adjuntos, con copia en OneDrive.
+Pero eso no es lo que importa.
+
+```bash
+powershell -ExecutionPolicy Bypass -File config/simulacro_restauracion.ps1
+```
+
+Ese simulacro restaura el último respaldo en una base aparte, compara su
+contenido tabla por tabla contra la viva, comprueba que las fotos de entrega y
+las firmas estén de verdad dentro del zip, arranca Odoo contra la base
+restaurada y borra la base de prueba.
+
+**Un respaldo que nadie ha restaurado nunca no es un respaldo: es un archivo
+del que se supone algo.** Y el día que haga falta es el peor día posible para
+descubrir que no servía. Conviene correrlo después de cada cambio grande, y
+una vez al mes sin excusa.
 
 ---
 
