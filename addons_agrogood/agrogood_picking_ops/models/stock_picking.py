@@ -91,6 +91,14 @@ class StockPicking(models.Model):
         """
         resultado = self.browse()
         for picking in self:
+            # SOLO en las salidas. En una entrega, 0,6 kg de menos es lo que
+            # peso la caja. En una COMPRA, lo que falta es mercaderia que
+            # Agrogood pago y no recibio: si se cierra sin pedido en espera, se
+            # piden 20 kg, llegan 18, el sistema da la compra por completa y
+            # nadie reclama los 2 que faltan. La diferencia entre las dos
+            # situaciones no es la cantidad, es de quien es la perdida.
+            if picking.picking_type_id.code != 'outgoing':
+                continue
             cortas = picking.move_ids.filtered(
                 lambda m: m.state != 'cancel' and m._agrogood_is_short())
             if cortas and all(

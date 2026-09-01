@@ -58,6 +58,12 @@ class AgrogoodPwa(http.Controller):
                 'sub': "Tomar pedidos y ver el dia",
                 'url': '/agrogood/ventas',
             })
+        if tiene('group_agrogood_warehouse'):
+            accesos.append({
+                'clave': 'bodega', 'nombre': "Bodega",
+                'sub': "Recibir mercaderia y registrar mermas",
+                'url': '/agrogood/bodega',
+            })
         if tiene('group_agrogood_picker'):
             accesos.append({
                 'clave': 'picker', 'nombre': "Preparacion",
@@ -546,3 +552,235 @@ class AgrogoodVentas(http.Controller):
             'faltantes': sum(1 for l in pedido.order_line
                              if l.agrogood_shortage_qty > 0),
         }
+
+
+class AgrogoodBodega(http.Controller):
+    """Pantallas propias de Bodega.
+
+    Recibir una compra en Odoo son tres pantallas: el albaran, la pestana de
+    operaciones detalladas y, si el producto lleva caducidad, una linea por
+    lote. Matias lo hace con el camion del proveedor esperando y las manos
+    frias. Aqui es una sola lista: cantidad, lote y vencimiento en la misma
+    fila, y validar.
+    """
+
+    def _es_bodega(self):
+        u = request.env.user
+        return (u.has_group('agrogood_base.group_agrogood_warehouse')
+                or u.has_group('agrogood_base.group_agrogood_general_admin'))
+
+    def _mi_recepcion(self, picking_id):
+        p = request.env['stock.picking'].browse(int(picking_id))
+        p.check_access('read')
+        if p.picking_type_id.code != 'incoming':
+            raise UserError(_("%s no es una recepcion.", p.name))
+        return p
+
+    @http.route('/agrogood/bodega', type='http', auth='user', website=False)
+    def bodega_home(self, **kw):
+        if not self._es_bodega():
+            return request.redirect('/agrogood/app')
+        Pick = request.env['stock.picking']
+        return request.render('agrogood_pwa.bodega_home', {
+            'recepciones': Pick.search(
+                [('picking_type_id.code', '=', 'incoming'),
+                 ('state', 'not in', ('done', 'cancel'))], order='scheduled_date'),
+            'preparando': request.env['agrogood.picking.session'].search(
+                [('state', 'in', ('assigned', 'in_progress'))]),
+            'por_vencer': request.env['stock.lot'].search(
+                [('expiration_date', '!=', False)], order='expiration_date', limit=6),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/bodega/recepcion/<int:picking_id>',
+                type='http', auth='user', website=False)
+    def bodega_recepcion(self, picking_id, **kw):
+        if not self._es_bodega():
+            return request.redirect('/agrogood/app')
+        p = self._mi_recepcion(picking_id)
+        return request.render('agrogood_pwa.bodega_recepcion', {
+            'picking': p,
+            'lineas': p.move_ids.filtered(lambda m: m.state != 'cancel'),
+        })
+
+    @http.route('/agrogood/bodega/merma', type='http', auth='user',
+                website=False)
+    def bodega_merma(self, **kw):
+        if not self._es_bodega():
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.bodega_merma', {})
+
+    @http.route('/agrogood/api/bodega/recibir', type='json', auth='user')
+    def api_recibir(self, picking_id, lineas, **kw):
+        """Anota lo que llego de verdad y valida.
+
+        La cantidad recibida se escribe en la linea; si el producto lleva lote,
+        se crea con su fecha de vencimiento en el mismo gesto. Separar las dos
+        cosas -recibir hoy, poner el lote despues- es como se pierde la
+        trazabilidad: nadie vuelve.
+        """
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        p = self._mi_recepcion(picking_id)
+        Move = request.env['stock.move']
+
+        # Primero se comprueba TODO y despues se escribe. Al reves, un lote que
+        # falta a mitad de la lista deja media recepcion anotada y media no, y
+        # nadie sabe por donde iba.
+        faltan_lote = []
+        for l in lineas:
+            mov = Move.browse(int(l['move_id']))
+            if mov.picking_id != p:
+                raise AccessError(_("Esa linea no es de esta recepcion."))
+            cantidad = float(l.get('qty') or 0)
+            if (mov.product_id.tracking == 'lot' and cantidad > 0
+                    and not (l.get('lote') or '').strip()):
+                faltan_lote.append(mov.product_id.display_name)
+        if faltan_lote:
+            salto = chr(10)
+            return {'ok': False, 'mensaje': _(
+                "Estos productos llevan control de caducidad y necesitan "
+                "numero de lote:%(salto)s%(lista)s",
+                salto=salto,
+                lista=salto.join('  - ' + n for n in faltan_lote))}
+
+        for l in lineas:
+            mov = Move.browse(int(l['move_id']))
+            cantidad = float(l.get('qty') or 0)
+            mov.move_line_ids.unlink()
+            if cantidad <= 0:
+                mov.quantity = 0
+                continue
+            vals = {
+                'move_id': mov.id,
+                'product_id': mov.product_id.id,
+                'location_id': mov.location_id.id,
+                'location_dest_id': mov.location_dest_id.id,
+                'quantity': cantidad,
+                'picked': True,
+            }
+            if mov.product_id.tracking == 'lot':
+                vals['lot_name'] = (l.get('lote') or '').strip()
+                if l.get('vence'):
+                    # Mediodia y no medianoche: guardado en UTC, una fecha a las
+                    # 00:00 se lee como el dia anterior en Chile, y una caducidad
+                    # corrida un dia manda a la basura mercaderia buena.
+                    vals['expiration_date'] = l['vence'] + " 12:00:00"
+            request.env['stock.move.line'].create(vals)
+
+        try:
+            resultado = p.button_validate()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+
+        # Odoo devuelve un asistente cuando queda cantidad sin recibir: es la
+        # pregunta del pedido en espera. Se responde que si -lo que falta se
+        # sigue debiendo- porque una compra incompleta no cierra la orden.
+        if isinstance(resultado, dict) and resultado.get('res_model'):
+            asistente = request.env[resultado['res_model']].with_context(
+                **resultado.get('context', {})).create({})
+            if hasattr(asistente, 'process'):
+                asistente.process()
+            elif hasattr(asistente, 'action_confirm'):
+                asistente.action_confirm()
+        p.invalidate_recordset()
+        return {'ok': True, 'estado': p.state,
+                'mensaje': _("%s recibido.", p.name)}
+
+    @http.route('/agrogood/api/bodega/productos', type='json', auth='user')
+    def api_bodega_productos(self, q='', **kw):
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        dominio = [('is_storable', '=', True)]
+        if q:
+            dominio = ['&', ('is_storable', '=', True),
+                       '|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+        return [{
+            'id': p.id,
+            'nombre': p.name,
+            'codigo': p.default_code or '',
+            'uom': p.uom_id.name,
+            'stock': round(p.qty_available, 1),
+            # Sin esto la pantalla no sabe que tiene que pedir el lote, y una
+            # merma sin lote se queda en borrador sin registrar nada.
+            'lleva_lote': p.tracking == 'lot',
+        } for p in request.env['product.product'].search(
+            dominio, limit=25, order='name')]
+
+    @http.route('/agrogood/api/bodega/lotes', type='json', auth='user')
+    def api_lotes(self, product_id, **kw):
+        """Lotes de ese producto con existencias, el que antes vence primero.
+
+        Se ordenan por vencimiento porque lo que se merma es casi siempre lo
+        mas viejo, y ponerlo arriba evita que Bodega tenga que buscarlo.
+        """
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        quants = request.env['stock.quant'].search([
+            ('product_id', '=', int(product_id)),
+            ('location_id.usage', '=', 'internal'),
+            ('quantity', '>', 0),
+        ])
+        salida = []
+        for q in quants.sorted(lambda x: (x.lot_id.expiration_date or fields.Datetime.now())):
+            if not q.lot_id:
+                continue
+            vence = q.lot_id.expiration_date
+            salida.append({
+                'id': q.lot_id.id,
+                'nombre': q.lot_id.name,
+                'cantidad': round(q.quantity, 1),
+                'vence': fields.Datetime.context_timestamp(
+                    q.lot_id, vence).strftime('%d/%m/%Y') if vence else '',
+            })
+        return salida
+
+    @http.route('/agrogood/api/bodega/responsables', type='json', auth='user')
+    def api_responsables(self, q='', **kw):
+        """Proveedores y transportistas, para las mermas que se reclaman."""
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        dominio = [('supplier_rank', '>', 0)]
+        if q:
+            dominio = ['&', ('supplier_rank', '>', 0), ('name', 'ilike', q)]
+        return [{'id': s.id, 'nombre': s.name}
+                for s in request.env['res.partner'].search(
+                    dominio, limit=20, order='name')]
+
+    @http.route('/agrogood/api/bodega/merma', type='json', auth='user')
+    def api_merma(self, product_id, qty, reason, note=None, partner_id=None,
+                  lot_id=None, **kw):
+        """Registra una merma con su motivo tipificado.
+
+        El motivo no es decorativo: separa lo que hay que reclamar al proveedor
+        de lo que se perdio en casa. Sin el, todas las mermas parecen lo mismo y
+        nadie reclama nada.
+        """
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        alm = request.env['stock.warehouse'].search([], limit=1)
+        producto = request.env['product.product'].browse(int(product_id))
+        # Un producto con control de caducidad NO se puede mermar sin decir de
+        # que lote: Odoo no sabe de donde descontarlo y deja la merma en
+        # borrador sin avisar de nada. Son 115 de los 195 productos.
+        if producto.tracking == 'lot' and not lot_id:
+            return {'ok': False, 'mensaje': _(
+                "%s lleva control de caducidad: hay que decir de que lote se "
+                "perdio.", producto.display_name)}
+        try:
+            merma = request.env['stock.scrap'].create({
+                'product_id': int(product_id),
+                'lot_id': int(lot_id) if lot_id else False,
+                'scrap_qty': float(qty),
+                'location_id': alm.lot_stock_id.id,
+                'agrogood_reason': reason,
+                'agrogood_reason_note': (note or '').strip(),
+                # Las mermas reclamables exigen a quien se le reclama: sin ese
+                # dato la perdida se asume y ya no se recupera. La pantalla lo
+                # pide, y aqui se vuelve a exigir.
+                'agrogood_partner_id': int(partner_id) if partner_id else False,
+            })
+            merma.action_validate()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {'ok': True, 'mensaje': _("Merma registrada: %s", merma.name)}

@@ -32,6 +32,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
         'security/agrogood_pwa_security.xml',
         'views/templates.xml',
         'views/ventas_templates.xml',
+        'views/bodega_templates.xml',
     ],
     'installable': True,
 }

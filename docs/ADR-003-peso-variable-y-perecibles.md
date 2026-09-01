@@ -106,3 +106,24 @@ validacion desde la PWA. Hasta entonces, quien valide a mano debe elegir
 
 Verificado en la prueba de punta a punta: cerrando sin backorder, el pedido
 queda en 'Entregado' con un solo albaran y la factura sale por 19,4 kg.
+
+
+---
+
+## Correccion (2026-08-26): la regla es SOLO para las salidas
+
+La supresion del pedido en espera se implemento para cualquier albaran cuyas
+lineas cortas fueran todas de peso variable, sin mirar si entraba o salia
+mercaderia. Se estaba aplicando tambien a las RECEPCIONES DE COMPRA.
+
+El efecto: se compraban 20 kg, llegaban 18, y el sistema cerraba la compra como
+completa. Los 2 kg que faltaban desaparecian sin que nadie los reclamara, y se
+pagaba la factura entera.
+
+El razonamiento original -"esos 0,6 kg no son una entrega pendiente, son lo que
+peso la caja"- vale cuando **Agrogood prepara** el pedido. En una compra, lo que
+falta es mercaderia **pagada y no recibida**. La diferencia entre las dos
+situaciones no es la cantidad: es de quien es la perdida.
+
+`_agrogood_pickings_without_backorder()` ahora ignora todo lo que no sea
+`picking_type_id.code == 'outgoing'`. Queda cubierto por `tools/prueba_bodega.py`.

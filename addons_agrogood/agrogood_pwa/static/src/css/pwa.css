@@ -292,3 +292,16 @@ body {
 .ag-check:has(.ag-check-input:not(:checked)) {
   border-color: var(--ag-rojo); background: var(--ag-rojo-claro);
 }
+
+/* Recepcion: lote y vencimiento en la misma fila, uno al lado del otro. En
+   pantalla estrecha se apilan, porque un campo de fecha comprimido no se
+   puede usar con el dedo. */
+.ag-lote-row { display: flex; gap: 8px; }
+.ag-lote-row .ag-buscar { margin: 8px 0; }
+.ag-lote-row .ag-lote { flex: 1 1 60%; }
+.ag-lote-row .ag-vence { flex: 1 1 40%; }
+@media (max-width: 420px) {
+  .ag-lote-row { flex-direction: column; gap: 0; }
+}
+
+select.ag-buscar { appearance: none; background-image: none; }
