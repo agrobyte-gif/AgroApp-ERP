@@ -128,6 +128,18 @@ código.
 calculan de sus albaranes, rutas y facturas. Un campo de estado que alguien
 debe mantener al día acaba mintiendo.
 
+**Cómo se llaman las cosas.** En Chile el cliente emite una *orden de compra*,
+y así la nombra Agrogood. Pero Odoo llama igual a lo que se le pide a un
+proveedor, y confundir una entrada con una salida en bodega es caro. Por eso:
+
+| Documento | En Agroapp se llama |
+|---|---|
+| Lo que manda el **cliente** (`sale.order`) | **Orden de compra** — abreviada *OC* |
+| Lo que se pide al **proveedor** (`purchase.order`) | **Orden al proveedor** |
+
+Los identificadores internos no cambian: siguen siendo `sale.order` y
+`purchase.order`. Lo que se ajusta es lo que lee el equipo.
+
 **Las decisiones importantes van en `docs/`,** y el porqué va en el mensaje del
 commit. Si algo parece raro, la explicación está en su historia.
 

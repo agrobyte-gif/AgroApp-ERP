@@ -18,13 +18,13 @@
                  un pedido por WhatsApp, asi que va en la cabecera. -->
             <xpath expr="//button[@id='action_confirm']" position="before">
                 <button name="action_agrogood_repeat_last_order" type="object"
-                        string="Traer ultimo pedido" class="btn-secondary"
+                        string="Traer su ultima orden" class="btn-secondary"
                         invisible="state not in ('draft', 'sent') or not partner_id"
                         help="Copia productos y cantidades del ultimo pedido de este cliente. Los precios se recalculan con la tarifa vigente."/>
             </xpath>
 
             <xpath expr="//button[@id='action_confirm']" position="after">
-                <button name="action_agrogood_close" type="object" string="Cerrar pedido"
+                <button name="action_agrogood_close" type="object" string="Cerrar la orden"
                         invisible="state != 'sale' or agrogood_closed"/>
                 <button name="action_agrogood_reopen" type="object" string="Reabrir"
                         invisible="not agrogood_closed"/>

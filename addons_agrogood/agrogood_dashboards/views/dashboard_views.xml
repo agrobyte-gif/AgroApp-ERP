@@ -161,7 +161,7 @@
     <!-- Ventas -->
     <menuitem id="menu_dash_ventas" name="Ventas" parent="menu_dash_root" sequence="10"
               groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
-    <menuitem id="m_dv_1" name="Pedidos de hoy" parent="menu_dash_ventas"
+    <menuitem id="m_dv_1" name="Ordenes de compra de hoy" parent="menu_dash_ventas"
               action="dash_ventas_pedidos" sequence="10"/>
     <menuitem id="m_dv_2" name="A quien llamar hoy" parent="menu_dash_ventas"
               action="agrogood_crm_reactivation.followup_action" sequence="20"/>
@@ -179,7 +179,7 @@
               action="dash_log_sin_picker" sequence="10"/>
     <menuitem id="m_dl_2" name="Preparaciones de hoy" parent="menu_dash_log"
               action="dash_log_preparaciones" sequence="20"/>
-    <menuitem id="m_dl_3" name="Pedidos atrasados" parent="menu_dash_log"
+    <menuitem id="m_dl_3" name="Ordenes atrasadas" parent="menu_dash_log"
               action="dash_log_atrasados" sequence="30"/>
     <menuitem id="m_dl_4" name="Rutas de hoy" parent="menu_dash_log"
               action="dash_log_rutas" sequence="40"/>

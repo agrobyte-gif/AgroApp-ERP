@@ -96,7 +96,7 @@
                     <button name="action_quote" type="object" string="Cotizando"
                             invisible="state not in ('searching',)"/>
                     <button name="action_create_purchase_order" type="object"
-                            string="Crear orden de compra" class="btn-primary"
+                            string="Crear orden al proveedor" class="btn-primary"
                             invisible="state in ('purchased', 'received', 'cancelled', 'rejected') or purchase_order_id"/>
                     <button name="action_mark_received" type="object" string="Recibido"
                             class="btn-primary" invisible="state not in ('purchased', 'partial')"/>
@@ -125,7 +125,7 @@
                                 class="oe_stat_button" icon="fa-file-text-o"
                                 invisible="not sale_order_id">
                             <div class="o_stat_info">
-                                <span class="o_stat_text">Pedido de</span>
+                                <span class="o_stat_text">OC de</span>
                                 <span class="o_stat_text">origen</span>
                             </div>
                         </button>

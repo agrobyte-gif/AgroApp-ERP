@@ -41,13 +41,13 @@
             <t t-set="titulo">Ventas</t>
 
             <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
-                Tomar un pedido
+                Tomar una orden de compra
             </a>
 
             <div class="ag-resumen">
                 <div class="ag-dato">
                     <span class="ag-dato-num"><t t-esc="len(pedidos)"/></span>
-                    <span class="ag-dato-txt">pedidos hoy</span>
+                    <span class="ag-dato-txt">ordenes de compra hoy</span>
                 </div>
                 <div class="ag-dato">
                     <span class="ag-dato-num">
@@ -77,9 +77,9 @@
                 </t>
             </t>
 
-            <h2 class="ag-h2">Pedidos de hoy</h2>
+            <h2 class="ag-h2">Ordenes de compra de hoy</h2>
             <t t-if="not pedidos">
-                <p class="ag-muted ag-pad">Todavia no se ha tomado ninguno.</p>
+                <p class="ag-muted ag-pad">Todavia no ha entrado ninguna.</p>
             </t>
             <t t-foreach="pedidos" t-as="p">
                 <div class="ag-card">
@@ -98,17 +98,17 @@
         </t>
     </template>
 
-    <!-- ================= VENTAS: TOMAR PEDIDO ================= -->
+    <!-- ============ VENTAS: TOMAR ORDEN DE COMPRA ============ -->
     <!--
         Tres etapas en una sola pagina: cliente, productos, confirmar. No son
-        tres paginas porque tomar un pedido se hace con el cliente hablando por
+        tres paginas porque la orden se toma con el cliente hablando por
         telefono, y cada carga es un silencio incomodo en el que hay que decir
         "espera un segundo".
     -->
 
-    <template id="ventas_nuevo" name="Ventas - tomar pedido">
+    <template id="ventas_nuevo" name="Ventas - tomar orden de compra">
         <t t-call="agrogood_pwa.layout">
-            <t t-set="titulo">Nuevo pedido</t>
+            <t t-set="titulo">Nueva orden de compra</t>
             <t t-set="volver">/agrogood/ventas</t>
 
             <!-- Etapa 1: el cliente -->
@@ -124,7 +124,7 @@
 
                 <div class="ag-actions">
                     <button type="button" id="btn-repetir" class="ag-btn ag-btn-ghost">
-                        Repetir su ultimo pedido
+                        Repetir su ultima orden
                     </button>
                 </div>
 
@@ -148,7 +148,7 @@
             <section id="et-hecho" class="ag-etapa ag-oculto">
                 <div class="ag-done-banner" id="hecho-texto"></div>
                 <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
-                    Tomar otro pedido
+                    Tomar otra orden
                 </a>
                 <a href="/agrogood/ventas" class="ag-btn ag-btn-ghost">Volver al dia</a>
             </section>

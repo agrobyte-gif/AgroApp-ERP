@@ -54,9 +54,9 @@
 
     <!-- ================= PICKER ================= -->
 
-    <template id="picker_home" name="Picker - mis pedidos">
+    <template id="picker_home" name="Picker - mis preparaciones">
         <t t-call="agrogood_pwa.layout">
-            <t t-set="titulo">Mis pedidos</t>
+            <t t-set="titulo">Mis preparaciones</t>
 
             <t t-if="en_curso">
                 <h2 class="ag-h2">En preparacion</h2>
@@ -139,7 +139,7 @@
                                 </span>
                             </div>
                             <div class="ag-line-qty">
-                                <span class="ag-muted">Pedido:</span>
+                                <span class="ag-muted">OC:</span>
                                 <strong><t t-esc="'%g' % m.product_uom_qty"/> <t t-esc="m.product_uom.name"/></strong>
                                 <t t-if="m.product_id.agrogood_format_id">
                                     <span class="ag-chip ag-chip-soft">
