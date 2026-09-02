@@ -32,6 +32,19 @@
                 trae una pregunta, y la lista tiene que responderla antes de
                 que toque nada.
             -->
+            <!-- Quien se mueve entre areas tiene ademas el tablero, con todos
+                 los accesos agrupados y las cifras de cada una. -->
+            <t t-if="len(accesos) &gt; 2">
+                <a href="/agrogood/tablero" class="ag-card ag-card-tap"
+                   style="--ag-i: 0">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title">Tablero</span>
+                        <span class="ag-card-sub">Todos los accesos y las cifras del dia</span>
+                    </div>
+                    <span class="ag-flecha">&#8250;</span>
+                </a>
+            </t>
+
             <t t-set="con_trabajo" t-value="[a for a in accesos if a['cuantos']]"/>
             <t t-set="sin_trabajo" t-value="[a for a in accesos if not a['cuantos']]"/>
 

@@ -30,6 +30,16 @@ from odoo.addons.agrogood_crm_reactivation.models.agrogood_payer import (
 )
 
 
+def inicio_del_dia():
+    """Las cero horas de hoy, para filtrar "lo de hoy".
+
+    Vive fuera de los controladores porque la usan dos, y dos copias de tres
+    lineas acaban siendo dos copias distintas: la que se corrige y la que no.
+    """
+    return fields.Datetime.to_string(
+        fields.Datetime.now().replace(hour=0, minute=0, second=0))
+
+
 class AgrogoodPwa(http.Controller):
 
     # ------------------------------------------------------------------
@@ -183,6 +193,195 @@ class AgrogoodPwa(http.Controller):
             n, texto = 0, ""
         return {'cuantos': n, 'pendiente': texto,
                 'orden': self.ORDEN.get(clave, 9)}
+
+    # ------------------------------------------------------------------
+    # Tablero: los accesos de cada area, con sus cifras al lado
+    # ------------------------------------------------------------------
+    #
+    # El menu de `/agrogood/app` responde "tengo trabajo". El tablero responde
+    # "llevame a X". Son dos preguntas distintas y por eso son dos pantallas:
+    # meter dieciocho accesos en el menu lo devolveria a lo que era, una lista
+    # larga que hay que leer entera.
+    #
+    # Las cifras van DENTRO de cada area, pegadas a los accesos que informan.
+    # Un bloque de numeros al final de la pagina se mira una semana: separa el
+    # dato de la accion que se toma con el, y entonces hay que acordarse de
+    # bajar a mirarlo.
+    #
+    # Cada acceso dice si se hace con el telefono o sentado. No es decoracion:
+    # abrir en el telefono algo que solo se puede trabajar en el escritorio es
+    # el viaje perdido que hace que la gente deje de usar el tablero.
+
+    def _accesos_por_area(self):
+        """Las areas que esta persona puede abrir, con accesos y cifras.
+
+        Se llama `_accesos_por_area` y no `_tablero` porque en esta clase los
+        metodos que filtran por rol llevan todos un nombre reconocible -_es_,
+        _mi_, _rol, _accesos-, y la auditoria comprueba que cada endpoint llame
+        a uno de ellos. Cuando se llamaba `_tablero`, la auditoria marco el
+        endpoint como abierto: lo estaba protegiendo, pero desde fuera no habia
+        forma de saberlo.
+        """
+        u = request.env.user
+
+        def tiene(g):
+            return u.has_group('agrogood_base.' + g)
+
+        admin = tiene('group_agrogood_general_admin')
+        areas = []
+        if tiene('group_agrogood_logistics_manager') or admin:
+            areas.append(self._area_logistica())
+        if tiene('group_agrogood_sales') or admin:
+            areas.append(self._area_ventas())
+        if tiene('group_agrogood_purchase') or admin:
+            areas.append(self._area_compras())
+        return areas
+
+    def _dinero(self, valor):
+        return "{:,.0f}".format(valor or 0).replace(",", ".")
+
+    def _area_logistica(self):
+        env = request.env
+        Pick = env['stock.picking'].sudo()
+        salidas = Pick.search([('picking_type_id.code', '=', 'outgoing'),
+                               ('state', 'not in', ('done', 'cancel'))])
+        sin_picker = salidas.filtered(lambda p: not p.agrogood_session_id)
+        listos = salidas.filtered(
+            lambda p: p.agrogood_session_id
+            and p.agrogood_session_id[0].state == 'done'
+            and not p.agrogood_route_id)
+        preparando = env['agrogood.picking.session'].sudo().search_count(
+            [('state', 'in', ('assigned', 'in_progress'))])
+        hoy = fields.Date.context_today(env.user)
+        rutas = env['agrogood.route'].sudo().search_count(
+            [('state', '=', 'in_progress')])
+        entregadas = env['agrogood.route.stop'].sudo().search_count(
+            [('state', '=', 'delivered'), ('route_id.date', '=', hoy)])
+        return {
+            'clave': 'logistica', 'nombre': "Logistica",
+            'cifras': [
+                {'num': len(sin_picker), 'txt': "sin asignar",
+                 'malo': bool(sin_picker)},
+                {'num': preparando, 'txt': "en preparacion"},
+                {'num': len(listos), 'txt': "listos para despachar"},
+                {'num': rutas, 'txt': "camiones en la calle"},
+                {'num': entregadas, 'txt': "entregas hechas hoy"},
+            ],
+            'accesos': [
+                {'n': "Repartir el trabajo", 's': "Asignar pedidos a los Pickers",
+                 'u': '/agrogood/logistica', 'd': False},
+                {'n': "Armar una ruta", 's': "Elegir entregas, conductor y camion",
+                 'u': '/agrogood/logistica/ruta', 'd': False},
+                {'n': "Control de bodega", 's': "Recibir mercaderia, mermas, inventario",
+                 'u': '/agrogood/bodega', 'd': False},
+                {'n': "Rutas de despacho", 's': "Todas las rutas y sus paradas",
+                 'u': '/odoo/action-agrogood_dashboards.dash_log_rutas', 'd': True},
+                {'n': "Revision de vehiculos", 's': "Que se reviso antes de salir",
+                 'u': '/odoo/action-agrogood_logistics.vehicle_check_action',
+                 'd': True},
+                {'n': "Productividad por Picker", 's': "Cuanto prepara cada uno",
+                 'u': '/odoo/action-agrogood_picking_ops.session_action_productivity',
+                 'd': True},
+            ],
+        }
+
+    def _area_ventas(self):
+        env = request.env
+        SO = env['sale.order'].sudo()
+        vendidas_hoy = SO.search([('date_order', '>=', inicio_del_dia()),
+                                  ('state', 'in', ('sale', 'done'))])
+        por_entregar = SO.search([('state', '=', 'sale')]).filtered(
+            lambda o: o.agrogood_state not in ('delivered', 'invoiced',
+                                               'closed', 'cancelled'))
+        entregados_hoy = env['agrogood.route.stop'].sudo().search_count([
+            ('state', '=', 'delivered'),
+            ('route_id.date', '=', fields.Date.context_today(env.user))])
+        Socio = env['res.partner'].sudo()
+        deudores = Socio.search([('agrogood_balance', '>', 0)])
+        vencido = sum(deudores.mapped('agrogood_overdue_balance'))
+        return {
+            'clave': 'ventas', 'nombre': "Ventas",
+            'cifras': [
+                {'num': self._dinero(sum(vendidas_hoy.mapped('amount_untaxed'))),
+                 'txt': "vendido hoy, sin IVA"},
+                {'num': len(vendidas_hoy), 'txt': "ordenes de compra hoy"},
+                {'num': len(por_entregar), 'txt': "pedidos pendientes"},
+                {'num': entregados_hoy, 'txt': "pedidos enviados hoy"},
+                {'num': self._dinero(sum(deudores.mapped('agrogood_balance'))),
+                 'txt': "por cobrar"},
+                {'num': self._dinero(vencido), 'txt': "vencido", 'malo': bool(vencido)},
+            ],
+            'accesos': [
+                {'n': "Tomar una orden de compra", 's': "Con el cliente al telefono",
+                 'u': '/agrogood/ventas/nuevo', 'd': False},
+                {'n': "El dia de Ventas", 's': "Lo que entro y a quien llamar",
+                 'u': '/agrogood/ventas', 'd': False},
+                {'n': "Cobranza", 's': "A quien llamar y cuanto debe",
+                 'u': '/agrogood/cobranza', 'd': False},
+                {'n': "Saldos de clientes", 's': "Quien debe, y desde cuando",
+                 'u': '/odoo/action-agrogood_bank.saldos_action', 'd': True},
+                {'n': "Abonos sin identificar", 's': "Cruzar la cartola del banco",
+                 'u': '/odoo/action-agrogood_bank.movement_action_pendientes',
+                 'd': True},
+                # No se enlaza a ningun sitio a proposito. Existe un diario de
+                # caja en Odoo, pero nadie lo ha usado nunca y llevar ahi a
+                # Ventas la deja en una pantalla de apuntes contables. Un
+                # acceso que no lleva a donde promete gasta la confianza en
+                # todo el tablero, no solo en ese boton.
+                {'n': "Caja chica", 's': "Gastos en efectivo: quien gasto, "
+                                        "en que y con que boleta",
+                 'u': None, 'd': False},
+            ],
+        }
+
+    def _area_compras(self):
+        env = request.env
+        hoy = fields.Date.context_today(env.user)
+        PO = env['purchase.order'].sudo()
+        del_dia = PO.search([('date_order', '>=', inicio_del_dia()),
+                             ('state', 'in', ('purchase', 'done'))])
+        Req = env['agrogood.purchase.request'].sudo()
+        abiertas = Req.search([('state', 'in', ('pending', 'searching',
+                                                'quoting', 'partial'))])
+        urgentes = abiertas.filtered(lambda r: r.priority == '1' or r.is_late)
+        por_recibir = env['stock.picking'].sudo().search_count([
+            ('picking_type_id.code', '=', 'incoming'),
+            ('state', 'not in', ('done', 'cancel'))])
+        return {
+            'clave': 'compras', 'nombre': "Compras",
+            'cifras': [
+                {'num': self._dinero(sum(del_dia.mapped('amount_untaxed'))),
+                 'txt': "comprado hoy, sin IVA"},
+                {'num': len(del_dia), 'txt': "ordenes al proveedor hoy"},
+                {'num': len(abiertas), 'txt': "por conseguir"},
+                {'num': len(urgentes), 'txt': "urgentes o atrasadas",
+                 'malo': bool(urgentes)},
+                {'num': por_recibir, 'txt': "por recibir en bodega"},
+            ],
+            'accesos': [
+                {'n': "La pizarra", 's': "Que hay que conseguir, y para cuando",
+                 'u': '/agrogood/compras', 'd': False},
+                # Recibir una compra Y controlar la bodega son la misma
+                # pantalla, y se dice. Ponerlas como dos accesos distintos
+                # haria buscar dos veces lo que esta una sola vez.
+                {'n': "Ingreso de compras", 's': "Es la misma pantalla de Bodega",
+                 'u': '/agrogood/bodega', 'd': False},
+                {'n': "Urgentes y atrasadas", 's': "Lo que se necesita hoy",
+                 'u': '/odoo/action-agrogood_dashboards.dash_compras_urgentes',
+                 'd': True},
+                {'n': "Ordenes al proveedor", 's': "Las emitidas y su estado",
+                 'u': '/odoo/action-purchase.purchase_form_action', 'd': True},
+            ],
+        }
+
+    @http.route('/agrogood/tablero', type='http', auth='user', website=False)
+    def tablero(self, **kw):
+        areas = self._accesos_por_area()
+        if not areas:
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.tablero', {
+            'areas': areas, 'usuario': request.env.user,
+        })
 
     def _mi_cliente(self, partner_id):
         """Cliente valido para vender: con linea comercial y sin hijos sueltos."""
@@ -495,9 +694,6 @@ class AgrogoodVentas(http.Controller):
         return (u.has_group('agrogood_base.group_agrogood_sales')
                 or u.has_group('agrogood_base.group_agrogood_general_admin'))
 
-    def _hoy(self):
-        return fields.Datetime.to_string(
-            fields.Datetime.now().replace(hour=0, minute=0, second=0))
 
     # ------------------------------------------------------------------
     # Pantallas
@@ -508,7 +704,7 @@ class AgrogoodVentas(http.Controller):
         if not self._es_ventas():
             return request.redirect('/agrogood/app')
         SO = request.env['sale.order']
-        hoy = SO.search([('date_order', '>=', self._hoy()),
+        hoy = SO.search([('date_order', '>=', inicio_del_dia()),
                          ('state', 'in', ('sale', 'done'))], order='date_order desc')
         return request.render('agrogood_pwa.ventas_home', {
             'pedidos': hoy,

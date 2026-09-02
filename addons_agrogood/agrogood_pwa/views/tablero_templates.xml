@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= EL TABLERO ================= -->
+    <!--
+        Tres areas, cada una con sus cifras arriba y sus accesos debajo.
+
+        Las cifras van DENTRO del area y no en un bloque al final de la pagina.
+        Un numero lejos de la accion que se toma con el se deja de mirar: hay
+        que acordarse de bajar, y nadie se acuerda. Aqui "5 sin asignar" esta
+        pegado al boton de repartir el trabajo.
+
+        Cada acceso dice si se hace con el telefono o sentado. Abrir en el
+        telefono algo que solo se puede trabajar en el escritorio es el viaje
+        perdido que hace que la gente deje de usar el tablero.
+
+        Y esta pantalla NO sustituye al menu de /agrogood/app. Aquel responde
+        "tengo trabajo"; este responde "llevame a X". Meter estos dieciocho
+        accesos en el menu lo devolveria a lo que era: una lista larga que hay
+        que leer entera.
+    -->
+
+    <template id="tablero" name="Tablero">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Tablero</t>
+            <t t-set="volver">/agrogood/app</t>
+
+            <t t-foreach="areas" t-as="area">
+                <h2 class="ag-h2"><t t-esc="area['nombre']"/></h2>
+
+                <div class="ag-cifras">
+                    <t t-foreach="area['cifras']" t-as="c">
+                        <div t-attf-class="ag-cifra #{'ag-cifra-malo' if c.get('malo') else ''}">
+                            <span class="ag-cifra-num"><t t-esc="c['num']"/></span>
+                            <span class="ag-cifra-txt"><t t-esc="c['txt']"/></span>
+                        </div>
+                    </t>
+                </div>
+
+                <div class="ag-atajos">
+                    <t t-foreach="area['accesos']" t-as="a">
+                        <!--
+                            El que no lleva a ningun sitio se dibuja apagado y
+                            sin enlace, en vez de esconderse. Esconderlo haria
+                            que alguien lo pidiera otra vez dentro de un mes;
+                            asi se ve que existe y que todavia no esta.
+                        -->
+                        <t t-if="a['u']">
+                            <a t-att-href="a['u']"
+                               t-attf-class="ag-atajo ag-card-tap #{'ag-atajo-pc' if a['d'] else ''}"
+                               t-attf-style="--ag-i: #{a_index}">
+                                <span class="ag-atajo-n"><t t-esc="a['n']"/></span>
+                                <span class="ag-atajo-s"><t t-esc="a['s']"/></span>
+                                <span class="ag-atajo-donde">
+                                    <t t-if="a['d']">escritorio</t>
+                                    <t t-else="">telefono</t>
+                                </span>
+                            </a>
+                        </t>
+                        <t t-else="">
+                            <div class="ag-atajo ag-atajo-no">
+                                <span class="ag-atajo-n"><t t-esc="a['n']"/></span>
+                                <span class="ag-atajo-s"><t t-esc="a['s']"/></span>
+                            </div>
+                        </t>
+                    </t>
+                </div>
+            </t>
+
+            <p class="ag-muted ag-pad">
+                Los accesos marcados <strong>escritorio</strong> abren Odoo:
+                son pantallas con tablas anchas que no caben en un telefono.
+                Los de <strong>telefono</strong> son las pantallas propias.
+            </p>
+        </t>
+    </template>
+
+</odoo>

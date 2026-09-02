@@ -388,3 +388,70 @@ select.ag-buscar { appearance: none; background-image: none; }
    lo que no es cero convierte el color en ruido. */
 .ag-dato-malo { border-color: var(--ag-rojo); background: var(--ag-rojo-claro); }
 .ag-dato-malo .ag-dato-num { color: var(--ag-rojo); }
+
+/* =====================================================================
+   El tablero: cifras arriba de cada area, accesos debajo.
+   ===================================================================== */
+
+/* Las cifras se aprietan en una rejilla que se adapta sola. En un telefono
+   caben dos por fila; en una tablet, cuatro. Sin numero magico de columnas:
+   `auto-fit` con un minimo hace el reparto y no hay que mantener puntos de
+   corte cuando se anade una cifra mas. */
+.ag-cifras {
+  display: grid; gap: 8px; margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.ag-cifra {
+  background: var(--ag-superficie); border: 1px solid var(--ag-linea);
+  border-radius: var(--ag-radio); padding: 10px 12px;
+  display: flex; flex-direction: column; min-width: 0;
+}
+.ag-cifra-num { font-size: 22px; font-weight: 700; line-height: 1.15;
+                color: var(--ag-tinta); }
+.ag-cifra-txt { font-size: 12px; color: var(--ag-tinta-2); line-height: 1.25; }
+/* Lo que pide atencion se marca con borde y color, nunca solo con color: en un
+   telefono al sol el color se pierde antes que la forma, y hay quien no
+   distingue el rojo del verde. */
+.ag-cifra-malo { border-color: var(--ag-ambar); border-width: 2px;
+                 padding: 9px 11px; }
+.ag-cifra-malo .ag-cifra-num { color: var(--ag-ambar); }
+
+/* Los accesos, en dos columnas cuando hay sitio. */
+.ag-atajos {
+  display: grid; gap: 10px; margin-bottom: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.ag-atajo {
+  position: relative;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 2px; min-height: 68px; padding: 12px 84px 12px 14px;
+  background: var(--ag-superficie); border: 1px solid var(--ag-linea);
+  border-radius: var(--ag-radio); text-decoration: none; color: inherit;
+}
+.ag-atajo-n { font-weight: 600; font-size: 16px; }
+.ag-atajo-s { font-size: 13px; color: var(--ag-tinta-2); }
+
+/* Donde se hace: telefono o sentado. Va arriba a la derecha, fuera del
+   recorrido de lectura del nombre, para que se consulte solo cuando importa. */
+.ag-atajo-donde {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--ag-verde-claro); color: var(--ag-accion-fuerte);
+}
+/* --ag-tinta-3 sobre el fondo daba 3,52:1, y a este tamano hace falta 4,5.
+   Se midio en el navegador, no se estimo: un gris que parece suficiente en la
+   pantalla del que lo escribe deja de serlo en un telefono a pleno sol. */
+.ag-atajo-pc .ag-atajo-donde { background: var(--ag-fondo);
+                               color: var(--ag-tinta-2); }
+
+/* Lo que todavia no existe: apagado, sin enlace y sin respuesta al tacto. Se
+   deja a la vista para que no se vuelva a pedir dentro de un mes. */
+.ag-atajo-no { opacity: .55; padding-right: 14px; }
+.ag-atajo-no .ag-atajo-n::after { content: " (por construir)";
+                                  font-weight: 500; color: var(--ag-tinta-3); }
+
+@media (max-width: 420px) {
+  .ag-atajo { padding-right: 14px; padding-top: 30px; }
+  .ag-atajo-donde { top: 8px; right: 8px; }
+}
