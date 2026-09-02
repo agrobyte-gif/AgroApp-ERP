@@ -11,6 +11,7 @@
                 <field name="value"/>
                 <field name="bank" optional="show"/>
                 <field name="note" optional="show"/>
+                <field name="is_shared" optional="show"/>
                 <field name="times_seen" optional="hide"/>
                 <field name="last_seen" optional="show"/>
             </list>
@@ -29,6 +30,8 @@
                         domain="[('kind','=','alias')]"/>
                 <filter name="f_sin_usar" string="Nunca vistas"
                         domain="[('times_seen','=',0)]"/>
+                <filter name="f_compartidas" string="Las usan varios clientes"
+                        domain="[('is_shared','=',True)]"/>
                 <group expand="0" string="Agrupar por">
                     <filter name="g_cliente" string="Cliente"
                             context="{'group_by': 'partner_id'}"/>
@@ -79,6 +82,7 @@
                             <field name="value"/>
                             <field name="bank"/>
                             <field name="note"/>
+                            <field name="is_shared"/>
                             <field name="times_seen" readonly="1"/>
                         </list>
                     </field>

@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bank_movement_sales,abonos ventas,model_agrogood_bank_movement,agrogood_base.group_agrogood_sales,1,1,0,0
+access_bank_movement_admin,abonos admin general,model_agrogood_bank_movement,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_bank_import_admin,cargar cartola admin,model_agrogood_bank_import,agrogood_base.group_agrogood_general_admin,1,1,1,1

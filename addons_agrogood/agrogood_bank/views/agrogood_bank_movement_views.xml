@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        La lista es editable en la columna del cliente y en ninguna otra. Lo
+        que dice el banco no se corrige: si se pudiera tocar el monto o la
+        fecha, la cartola dejaria de ser la prueba de nada. Lo unico que decide
+        una persona es de quien es el abono, y por eso es lo unico que se
+        escribe aqui.
+
+        El orden por defecto es por monto: el abono de dos millones y el de
+        tres mil cuestan lo mismo de enlazar, y uno resuelve mucho mas.
+    -->
+    <record id="movement_view_list" model="ir.ui.view">
+        <field name="name">agrogood.bank.movement.list</field>
+        <field name="model">agrogood.bank.movement</field>
+        <field name="arch" type="xml">
+            <list string="Abonos del banco" editable="bottom"
+                  default_order="amount desc"
+                  decoration-muted="state == 'discarded'"
+                  decoration-warning="state == 'doubtful'"
+                  decoration-success="state == 'identified'">
+                <field name="date" readonly="1"/>
+                <field name="bank" readonly="1" optional="show"/>
+                <field name="amount" readonly="1" sum="Total"/>
+                <field name="payer_rut" readonly="1" optional="show"/>
+                <field name="payer_alias" readonly="1" optional="show"/>
+                <field name="payer_name" readonly="1" optional="hide"/>
+                <field name="description" readonly="1" optional="hide"/>
+                <field name="partner_id"
+                       placeholder="De quien es este abono"/>
+                <field name="partner_due" readonly="1" optional="show"/>
+                <field name="invoice_match_id" readonly="1" optional="show"/>
+                <field name="match_reason" readonly="1" optional="hide"/>
+                <field name="state" readonly="1" widget="badge"
+                       decoration-success="state == 'identified'"
+                       decoration-warning="state == 'doubtful'"/>
+                <field name="currency_id" column_invisible="1"/>
+                <button name="action_descartar" type="object" icon="fa-ban"
+                        title="No es un cobro de cliente"
+                        invisible="state == 'discarded'"/>
+                <button name="action_ver_facturas" type="object"
+                        icon="fa-file-text-o" title="Ver sus facturas por cobrar"
+                        invisible="not partner_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="movement_view_form" model="ir.ui.view">
+        <field name="name">agrogood.bank.movement.form</field>
+        <field name="model">agrogood.bank.movement</field>
+        <field name="arch" type="xml">
+            <form string="Abono">
+                <header>
+                    <button name="action_cruzar" type="object" string="Volver a cruzar"
+                            class="btn-secondary"/>
+                    <button name="action_descartar" type="object"
+                            string="No es un cobro" class="btn-secondary"
+                            invisible="state == 'discarded'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="unknown,doubtful,identified"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Lo que dice el banco">
+                            <field name="bank" readonly="1"/>
+                            <field name="date" readonly="1"/>
+                            <field name="amount" readonly="1"/>
+                            <field name="payer_rut" readonly="1"/>
+                            <field name="payer_alias" readonly="1"/>
+                            <field name="payer_name" readonly="1"/>
+                            <field name="source_account" readonly="1"/>
+                            <field name="description" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="De quien es">
+                            <field name="partner_id"/>
+                            <field name="match_reason" readonly="1"/>
+                            <field name="partner_due" readonly="1"/>
+                            <field name="invoice_match_id" readonly="1"/>
+                            <button name="action_ver_facturas" type="object"
+                                    string="Ver sus facturas por cobrar"
+                                    class="btn-link" invisible="not partner_id"/>
+                        </group>
+                    </group>
+                    <div class="text-muted" invisible="state != 'doubtful'">
+                        <p>
+                            Este abono no se asigna solo a proposito. O el RUT y
+                            el nombre apuntan a clientes distintos, o ese pagador
+                            ya se vio pagando por mas de un cliente. Elegir uno
+                            de los dos al azar daria por cobrada la factura del
+                            otro, y eso se descubre semanas despues.
+                        </p>
+                    </div>
+                    <div class="text-muted" invisible="state != 'unknown'">
+                        <p>
+                            Al poner el cliente aqui, el sistema aprende ese RUT
+                            y ese nombre. Los demas abonos que vengan del mismo
+                            pagador se resuelven solos al pulsar
+                            <strong>Volver a cruzar</strong>.
+                        </p>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!--
+        No hay filtro por "tiene factura que calza": ese dato se calcula
+        al vuelo contra el saldo vivo de cada factura. Guardarlo para poder
+        filtrarlo obligaria a recalcularlo cada vez que se cobra algo, y
+        entre recalculo y recalculo el filtro mentiria. En una pantalla de
+        dinero, un filtro que miente es peor que no tenerlo: se ve en la
+        columna de la lista, que siempre esta al dia.
+    -->
+    <record id="movement_view_search" model="ir.ui.view">
+        <field name="name">agrogood.bank.movement.search</field>
+        <field name="model">agrogood.bank.movement</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="payer_rut"/>
+                <field name="payer_alias"/>
+                <field name="payer_name"/>
+                <field name="partner_id"/>
+                <field name="amount"/>
+                <filter name="f_pendientes" string="Falta identificar"
+                        domain="[('state', 'in', ('unknown', 'doubtful'))]"/>
+                <filter name="f_dudosos" string="Hay que mirarlo"
+                        domain="[('state', '=', 'doubtful')]"/>
+                <filter name="f_identificados" string="Se sabe quien pago"
+                        domain="[('state', '=', 'identified')]"/>
+                <separator/>
+                <filter name="f_mes" string="Este mes" date="date"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_estado" string="Situacion"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="g_banco" string="Banco"
+                            context="{'group_by': 'bank'}"/>
+                    <filter name="g_cliente" string="Cliente"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="g_pagador" string="RUT del pagador"
+                            context="{'group_by': 'payer_rut'}"/>
+                    <filter name="g_fecha" string="Fecha"
+                            context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="movement_action" model="ir.actions.act_window">
+        <field name="name">Abonos del banco</field>
+        <field name="res_model">agrogood.bank.movement</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_f_pendientes': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavia no hay ninguna cartola cargada</p>
+            <p>
+                Se sube el archivo tal como lo exporta el banco, sin retocarlo:
+                <strong>Cobranza &gt; Cargar cartola del banco</strong>.
+            </p><p>
+                La mayoria de los abonos traen el RUT de quien transfiere y se
+                identifican solos. De los que no, cada uno que se enlaza a mano
+                queda aprendido, y a partir de ahi ese pagador se reconoce sin
+                que nadie haga nada.
+            </p>
+        </field>
+    </record>
+
+    <!-- La lista corta: lo que de verdad hay que trabajar. -->
+    <record id="movement_action_pendientes" model="ir.actions.act_window">
+        <field name="name">Abonos sin identificar</field>
+        <field name="res_model">agrogood.bank.movement</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state', 'in', ('unknown', 'doubtful'))]</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No queda ninguno pendiente</p>
+            <p>Todos los abonos cargados tienen dueno.</p>
+        </field>
+    </record>
+
+</odoo>

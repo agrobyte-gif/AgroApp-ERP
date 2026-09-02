@@ -130,3 +130,80 @@ porque eso repartiria los cobros al azar entre ambos.
 Las identidades se ven y se editan en la propia ficha del cliente, pestana
 **Como paga**. Un cliente que paga raro se explica en su ficha, no en otra
 pantalla que hay que saber que existe.
+
+---
+
+## Correccion (2026-09-01): Santander si publica el RUT, y el modulo ya existe
+
+Al construir el lector aparecio que la medicion anterior estaba mal. Se dijo
+que Santander traia el RUT en el 2% de los movimientos. **Lo trae en el 95%.**
+
+Lo pone al principio de la descripcion, relleno de ceros hasta once digitos:
+
+```
+00763341712 Pago factura     ->  76.334.171-2
+77.811.898-K Transf. C       ->  77.811.898-K
+```
+
+La medicion anterior buscaba el RUT escrito con puntos y guion, que es como lo
+escribe una persona. Santander lo escribe como lo escribe una maquina. Buscar
+el formato bonito y concluir que el dato no existe es un error facil de
+cometer y caro: sobre esa conclusion se habia decidido que **la mitad del
+dinero solo se podia cruzar por alias aprendido**, y no era verdad.
+
+**El cruce es por RUT en los tres bancos.** El alias pasa de ser la estrategia
+principal de Santander a ser lo que resuelve el 5% que no lleva RUT, y lo que
+desempata cuando un RUT no basta.
+
+### Un RUT no siempre es un solo cliente
+
+Cruzando por nombre los pagadores de la misma cartola:
+
+| | |
+|---|---|
+| RUT de pagador distintos | 523 |
+| Pagaron facturas de **mas de un negocio** | 108 |
+| De esos, sin un nombre que domine | 81 |
+
+Es la sociedad que paga por dos locales, o el dueno que paga por el suyo y por
+el de un socio. Se consideraron dos salidas:
+
+* **Marcar dudoso todo RUT que se repita.** Correcto y automatico, pero dejaba
+  el 47% de los abonos esperando a una persona. Tanto trabajo manual como no
+  tener el modulo.
+* **Aprenderlo.** Un RUT se marca compartido cuando *se demuestra* que lo es:
+  cuando alguien lo enlaza a un segundo cliente. Desde entonces deja de asignar
+  solo. Se eligio esta.
+
+La identidad compartida no cambia de dueno ni se duplica -eso repartiria los
+cobros al azar-. Y si el abono trae ademas el nombre corto, el nombre desempata
+y el abono se resuelve igual: una senal compartida no anula a la otra.
+
+### Lo que da hoy, sin configurar nada
+
+Ensayo con la cartola de un mes, partiendo de cero identidades aprendidas y con
+rollback -no se importo nada-:
+
+| | Abonos | |
+|---|---|---|
+| Leidos del archivo | 13.167 | |
+| Cargos y traspasos, descartados | 1.642 | no los paga ningun cliente |
+| **Identificados solos** | **4.326** | 33%, solo con el RUT que ya esta en la ficha |
+| Pendientes | 8.841 | |
+
+Y lo que importa: esos 8.841 abonos vienen de **593 pagadores distintos**, y
+los **20 de mas monto concentran el 76% del dinero pendiente**. El trabajo
+manual del primer mes no son 8.841 decisiones: son 593 como mucho, y veinte
+resuelven tres cuartas partes.
+
+Sigue en pie la conclusion del analisis original: **completar los RUT que
+faltan en las fichas es la palanca del modulo**, porque es lo unico que
+identifica sin que nadie enlace nada.
+
+### Lo que el modulo NO hace
+
+No asienta ningun pago. Dice de quien es el abono y que facturas tiene abiertas
+ese cliente -y marca la que calza exactamente con el importe-, pero conciliar
+sigue siendo una decision de una persona con la factura delante. Dar por
+cobrada la factura equivocada no se descubre al dia siguiente: se descubre
+semanas despues, reclamando una deuda que ya estaba pagada.

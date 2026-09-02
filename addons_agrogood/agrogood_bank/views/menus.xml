@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Cobranza cuelga de Paneles y no de Contabilidad a proposito: esto no es
+        contabilidad todavia. Es el paso de antes -saber de quien es cada
+        abono-, y lo hace la misma persona que mira los paneles, no un contador.
+    -->
+    <menuitem id="menu_cobros" name="Cobranza"
+              parent="agrogood_dashboards.menu_dash_root" sequence="35"
+              groups="agrogood_base.group_agrogood_general_admin,agrogood_base.group_agrogood_sales"/>
+
+    <menuitem id="menu_cobros_pendientes" name="Abonos sin identificar"
+              parent="menu_cobros" action="movement_action_pendientes"
+              sequence="10"/>
+
+    <menuitem id="menu_cobros_todos" name="Todos los abonos"
+              parent="menu_cobros" action="movement_action" sequence="20"/>
+
+    <menuitem id="menu_cobros_cargar" name="Cargar cartola del banco"
+              parent="menu_cobros" action="import_action" sequence="30"/>
+
+</odoo>

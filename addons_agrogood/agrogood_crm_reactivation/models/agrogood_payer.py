@@ -22,11 +22,12 @@ def normalizar_rut(bruto):
     """Deja el RUT en la forma `12345678-9`, o None si no es uno valido.
 
     Los bancos lo escriben de todas las maneras posibles: `783444062`,
-    `77.716.841-K`, `77716841K`. Se compara siempre normalizado, o el mismo
-    pagador aparece como tres pagadores distintos.
+    `77.716.841-K`, `77716841K`, y Santander ademas lo rellena de ceros por la
+    izquierda hasta once digitos -`00763341712`-. Se compara siempre
+    normalizado, o el mismo pagador aparece como cuatro pagadores distintos.
     """
-    limpio = re.sub(r"[^0-9kK]", "", str(bruto or "")).upper()
-    if len(limpio) < 8 or not limpio[:-1].isdigit():
+    limpio = re.sub(r"[^0-9kK]", "", str(bruto or "")).upper().lstrip("0")
+    if len(limpio) < 8 or len(limpio) > 9 or not limpio[:-1].isdigit():
         return None
     cuerpo, verificador = limpio[:-1], limpio[-1]
     if digito_verificador(cuerpo) != verificador:
@@ -61,6 +62,13 @@ class AgrogoodPayer(models.Model):
     cartola, `RESTAURANT PAC LIMITADA` se parece un 83% a `RESTAURANT KEKA` y
     no tienen nada que ver. Dar por pagada la factura de otro cliente no es un
     dato mal puesto: es un cobro que se deja de perseguir.
+
+    Y al reves tampoco es uno a uno: **un mismo RUT paga por varios clientes**.
+    En esa cartola, 108 de 523 RUT liquidaron facturas de mas de un negocio.
+    Por eso existe `is_shared`: una identidad que se demuestra compartida deja
+    de asignar sola. Se prefirio aprenderlo a suponerlo -marcar de entrada como
+    dudoso todo RUT repetido dejaba casi la mitad de los abonos esperando a una
+    persona, que es tanto trabajo manual como no tener el modulo-.
     """
 
     _name = 'agrogood.payer'
@@ -82,6 +90,13 @@ class AgrogoodPayer(models.Model):
 
     times_seen = fields.Integer(string="Veces visto", default=0, readonly=True)
     last_seen = fields.Date(string="Ultima vez", readonly=True)
+
+    is_shared = fields.Boolean(
+        string="Lo usan varios clientes", default=False,
+        help="Ese RUT o ese nombre paga facturas de mas de un cliente, de modo "
+             "que por si solo no decide de quien es el abono. Deja de asignar "
+             "automaticamente y pasa a esperar a una persona.",
+    )
 
     company_id = fields.Many2one(
         comodel_name='res.company', default=lambda self: self.env.company,
@@ -131,30 +146,106 @@ class AgrogoodPayer(models.Model):
     # ------------------------------------------------------------------
 
     @api.model
-    def buscar_cliente(self, rut=None, alias=None):
-        """Devuelve el cliente que hay detras de un pagador, o vacio.
+    def resolver(self, rut=None, alias=None):
+        """Quien pago, y de donde se dedujo. Devuelve (cliente, motivo).
 
-        Se prueba primero el RUT y despues el alias: el RUT identifica sin
-        ambiguedad, el alias es una convencion. Si el RUT no esta registrado
-        como identidad, se prueba tambien contra el de la ficha del cliente,
-        que es el caso mas comun al empezar.
+        `motivo` es uno de: `rut_aprendido`, `rut_ficha`, `alias_aprendido`,
+        `compartida`, `discrepan`, `nada`. Importa tanto como el cliente: en la
+        pantalla de conciliacion decide si el abono se da por resuelto o espera
+        a una persona, y sin el habria que volver a deducirlo para explicarlo.
+
+        Se miran las DOS senales en lugar de quedarse con la primera que
+        acierta. Si el RUT dice un cliente y el nombre dice otro, eso no es un
+        empate que se rompa por orden de preferencia: es justo el caso en que
+        equivocarse sale caro, y lo unico correcto es no decidirlo solo.
         """
         Socio = self.env['res.partner']
+        vacio = Socio.browse()
         rut_n = normalizar_rut(rut) if rut else None
+        alias_n = normalizar_alias(alias) if alias else None
+
+        compartida = False
+
+        por_rut, motivo_rut = vacio, None
         if rut_n:
             ident = self.search([('kind', '=', 'rut'), ('value', '=', rut_n)], limit=1)
-            if ident:
-                return ident.partner_id
-            socio = Socio.search([('vat', '=', rut_n)], limit=1)
-            if socio:
-                return socio
-        if alias:
+            if ident and ident.is_shared:
+                compartida = True
+            elif ident:
+                por_rut, motivo_rut = ident.partner_id, 'rut_aprendido'
+            else:
+                socio = Socio.search([('vat', '=', rut_n)], limit=1)
+                if socio:
+                    por_rut, motivo_rut = socio, 'rut_ficha'
+
+        por_alias = vacio
+        if alias_n:
             ident = self.search(
-                [('kind', '=', 'alias'), ('value', '=', normalizar_alias(alias))],
-                limit=1)
-            if ident:
-                return ident.partner_id
-        return Socio.browse()
+                [('kind', '=', 'alias'), ('value', '=', alias_n)], limit=1)
+            if ident and ident.is_shared:
+                compartida = True
+            elif ident:
+                por_alias = ident.partner_id
+
+        if por_rut and por_alias and por_rut != por_alias:
+            return vacio, 'discrepan'
+        # Una senal compartida no descarta la otra: si el RUT lo usan dos
+        # clientes pero el banco trae ademas el nombre corto de uno de ellos,
+        # eso resuelve el abono. Para eso esta el alias. Solo cuando no queda
+        # ninguna senal util se devuelve el abono a una persona.
+        if por_rut:
+            return por_rut, motivo_rut
+        if por_alias:
+            return por_alias, 'alias_aprendido'
+        if compartida:
+            return vacio, 'compartida'
+        return vacio, 'nada'
+
+    @api.model
+    def buscar_cliente(self, rut=None, alias=None):
+        """El cliente que hay detras de un pagador, o vacio."""
+        return self.resolver(rut=rut, alias=alias)[0]
+
+    @api.model
+    def aprender(self, partner, rut=None, alias=None, bank=None):
+        """Guarda como paga este cliente. Devuelve las identidades tocadas.
+
+        Se aprende SOLO cuando una persona enlaza el abono a mano. Nunca a
+        partir de un cruce automatico: aprender de lo que uno mismo dedujo
+        convierte un error en una regla, y a partir de ahi se repite solo.
+
+        Si el valor ya esta a nombre de otro cliente no se pisa ni se duplica:
+        se marca la identidad existente como COMPARTIDA. Eso es lo que pasa de
+        verdad -en una cartola real, 108 de 523 RUT pagaron facturas de mas de
+        un negocio: la sociedad que paga por dos locales, el dueno que paga por
+        el suyo y por el de un socio-. A partir de ese momento ese RUT deja de
+        asignar solo y los abonos que lleguen con el esperan a una persona, que
+        es lo unico honesto cuando el dato no alcanza para decidir.
+        """
+        tocadas = self.browse()
+        for tipo, bruto in (('rut', rut), ('alias', alias)):
+            if not bruto:
+                continue
+            valor = self._normalizar(tipo, bruto)
+            if tipo == 'rut' and not normalizar_rut(valor):
+                continue
+            if tipo == 'alias' and len(valor) < 3:
+                continue
+            existente = self.search([('kind', '=', tipo), ('value', '=', valor)], limit=1)
+            if existente and existente.partner_id == partner:
+                tocadas |= existente
+                continue
+            if existente:
+                existente.is_shared = True
+                existente.note = (existente.note or "") or _(
+                    "Lo usan varios clientes; el abono se asigna a mano.")
+                tocadas |= existente
+                continue
+            tocadas |= self.create({
+                'partner_id': partner.id, 'kind': tipo,
+                'value': valor, 'bank': bank or False,
+            })
+        return tocadas
 
     def registrar_uso(self, fecha=None):
         """Anota que esta identidad se vio. Sirve para limpiar las que sobran."""
