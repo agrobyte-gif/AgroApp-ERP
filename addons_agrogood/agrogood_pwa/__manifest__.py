@@ -39,6 +39,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
         'views/direccion_templates.xml',
         'views/cobranza_templates.xml',
         'views/tablero_templates.xml',
+        'views/caja_templates.xml',
     ],
     'installable': True,
 }

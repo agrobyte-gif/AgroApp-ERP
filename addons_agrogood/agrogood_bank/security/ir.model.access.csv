@@ -4,3 +4,8 @@ access_bank_movement_admin,abonos admin general,model_agrogood_bank_movement,agr
 access_bank_import_admin,cargar cartola admin,model_agrogood_bank_import,agrogood_base.group_agrogood_general_admin,1,1,1,1
 access_alloc_sales,imputaciones ventas,model_agrogood_payment_allocation,agrogood_base.group_agrogood_sales,1,1,1,1
 access_alloc_admin,imputaciones admin,model_agrogood_payment_allocation,agrogood_base.group_agrogood_general_admin,1,1,1,1
+access_caja_compras,caja chica compras,model_agrogood_petty_cash,agrogood_base.group_agrogood_purchase,1,0,1,0
+access_caja_bodega,caja chica bodega,model_agrogood_petty_cash,agrogood_base.group_agrogood_warehouse,1,0,1,0
+access_caja_driver,caja chica conductores,model_agrogood_petty_cash,agrogood_base.group_agrogood_driver,1,0,1,0
+access_caja_ventas,caja chica ventas,model_agrogood_petty_cash,agrogood_base.group_agrogood_sales,1,0,1,0
+access_caja_admin,caja chica direccion,model_agrogood_petty_cash,agrogood_base.group_agrogood_general_admin,1,1,1,1

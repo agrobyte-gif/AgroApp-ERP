@@ -87,6 +87,16 @@ class AgrogoodPwa(http.Controller):
                 'sub': "A quien llamar y cuanto debe",
                 'url': '/agrogood/cobranza',
             })
+        if any(tiene(g) for g in ('group_agrogood_purchase',
+                                  'group_agrogood_driver',
+                                  'group_agrogood_warehouse',
+                                  'group_agrogood_sales',
+                                  'group_agrogood_general_admin')):
+            accesos.append({
+                'clave': 'caja', 'nombre': "Caja chica",
+                'sub': "Anotar un gasto con su boleta",
+                'url': '/agrogood/caja',
+            })
         if tiene('group_agrogood_purchase'):
             accesos.append({
                 'clave': 'compras', 'nombre': "Compras",
@@ -128,8 +138,9 @@ class AgrogoodPwa(http.Controller):
     # Cada pantalla, en el mismo orden en que transcurre el dia. Sirve para
     # desempatar cuando dos roles tienen lo mismo pendiente, de modo que la
     # lista no baile de una carga a otra.
-    ORDEN = {'direccion': 0, 'ventas': 1, 'cobranza': 2, 'compras': 3,
-             'logistica': 4, 'bodega': 5, 'picker': 6, 'driver': 7}
+    ORDEN = {'direccion': 0, 'ventas': 1, 'cobranza': 2, 'caja': 3,
+             'compras': 4, 'logistica': 5, 'bodega': 6, 'picker': 7,
+             'driver': 8}
 
     def _pendiente(self, clave):
         """Cuanto trabajo espera a esta persona en esa pantalla.
@@ -183,6 +194,12 @@ class AgrogoodPwa(http.Controller):
                 n = env['res.partner'].sudo().search_count(
                     [('agrogood_overdue_balance', '>', 0)])
                 texto = "deben vencido"
+            elif clave == 'caja':
+                # Los gastos sin boleta son lo unico pendiente de una caja
+                # chica: lo demas ya esta anotado.
+                n = env['agrogood.petty.cash'].sudo().search_count(
+                    [('kind', '=', 'gasto'), ('receipt', '=', False)])
+                texto = "sin boleta"
             elif clave == 'direccion':
                 n = env['agrogood.route'].sudo().search_count(
                     [('state', '=', 'in_progress')])
@@ -310,6 +327,9 @@ class AgrogoodPwa(http.Controller):
                 {'num': self._dinero(sum(deudores.mapped('agrogood_balance'))),
                  'txt': "por cobrar"},
                 {'num': self._dinero(vencido), 'txt': "vencido", 'malo': bool(vencido)},
+                {'num': self._dinero(
+                    env['agrogood.petty.cash'].sudo().saldo()),
+                 'txt': "queda en caja chica"},
             ],
             'accesos': [
                 {'n': "Tomar una orden de compra", 's': "Con el cliente al telefono",
@@ -323,14 +343,10 @@ class AgrogoodPwa(http.Controller):
                 {'n': "Abonos sin identificar", 's': "Cruzar la cartola del banco",
                  'u': '/odoo/action-agrogood_bank.movement_action_pendientes',
                  'd': True},
-                # No se enlaza a ningun sitio a proposito. Existe un diario de
-                # caja en Odoo, pero nadie lo ha usado nunca y llevar ahi a
-                # Ventas la deja en una pantalla de apuntes contables. Un
-                # acceso que no lleva a donde promete gasta la confianza en
-                # todo el tablero, no solo en ese boton.
-                {'n': "Caja chica", 's': "Gastos en efectivo: quien gasto, "
-                                        "en que y con que boleta",
-                 'u': None, 'd': False},
+                {'n': "Caja chica", 's': "Anotar un gasto con su boleta",
+                 'u': '/agrogood/caja', 'd': False},
+                {'n': "Movimientos de la caja", 's': "El sobre entero, y quien gasto",
+                 'u': '/odoo/action-agrogood_bank.petty_cash_action', 'd': True},
             ],
         }
 
@@ -1819,6 +1835,88 @@ class AgrogoodDireccion(http.Controller):
                 [('state', '=', 'pending')]),
             'usuario': request.env.user,
         })
+
+
+class AgrogoodCaja(http.Controller):
+    """La caja chica en el telefono.
+
+    El gasto se registra donde ocurre: en la feria, en la bomba de bencina, con
+    la boleta todavia en la mano. Dejarlo para cuando alguien vuelva a la
+    oficina es como se pierden las boletas y como el sobre deja de cuadrar.
+
+    Reponer el sobre NO esta aqui. Lo hace Direccion desde el escritorio, y esa
+    separacion es todo el control de una caja chica: si quien saca pudiera
+    tambien rellenar, el saldo siempre cuadraria y no significaria nada.
+    """
+
+    def _es_caja(self):
+        """Quien puede sacar plata del sobre.
+
+        Compras compra en la feria, los conductores pagan peajes y combustible,
+        Bodega compra insumos. Ventas entra porque lleva la administracion del
+        dia a dia, que es donde el usuario pidio el acceso.
+        """
+        u = request.env.user
+        return any(u.has_group('agrogood_base.' + g) for g in (
+            'group_agrogood_purchase', 'group_agrogood_driver',
+            'group_agrogood_warehouse', 'group_agrogood_sales',
+            'group_agrogood_general_admin'))
+
+    @http.route('/agrogood/caja', type='http', auth='user', website=False)
+    def caja_home(self, **kw):
+        if not self._es_caja():
+            return request.redirect('/agrogood/app')
+        Caja = request.env['agrogood.petty.cash'].sudo()
+        from odoo.addons.agrogood_bank.models.agrogood_petty_cash import (
+            CATEGORIAS)
+        return request.render('agrogood_pwa.caja_home', {
+            'saldo': Caja.saldo(),
+            'gastado_mes': Caja.gastado_en_el_mes(),
+            'movimientos': Caja.search([], limit=12),
+            'categorias': CATEGORIAS,
+            'sin_boleta': Caja.search_count([('kind', '=', 'gasto'),
+                                             ('receipt', '=', False)]),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/api/caja/gasto', type='json', auth='user')
+    def api_gasto(self, amount, category, note=None, receipt=None,
+                  no_receipt_reason=None, **kw):
+        """Anota un gasto del sobre.
+
+        Se avisa -no se impide- cuando el gasto deja el sobre en negativo. Que
+        el saldo no cuadre es informacion, y bloquear el registro solo
+        conseguiria que el gasto no se anotara en ningun sitio.
+        """
+        if not self._es_caja():
+            raise AccessError(_("No tienes permiso para la caja chica."))
+        try:
+            monto = float(amount)
+        except (TypeError, ValueError):
+            return {'ok': False, 'mensaje': _("El monto no es un numero.")}
+        if monto <= 0:
+            return {'ok': False, 'mensaje': _("El monto tiene que ser mayor "
+                                              "que cero.")}
+        Caja = request.env['agrogood.petty.cash'].sudo()
+        antes = Caja.saldo()
+        try:
+            Caja.create({
+                'kind': 'gasto', 'amount': monto, 'category': category,
+                'note': (note or '').strip() or False,
+                'receipt': receipt or False,
+                'no_receipt_reason': (no_receipt_reason or '').strip() or False,
+                'user_id': request.env.user.id,
+            })
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        queda = antes - monto
+        mensaje = _("Anotado. Quedan %(saldo)s en el sobre.",
+                    saldo="{:,.0f}".format(queda).replace(",", "."))
+        if queda < 0:
+            mensaje = _("Anotado, pero el sobre queda en %(saldo)s: hay mas "
+                        "gastado que repuesto. Avisa a Direccion.",
+                        saldo="{:,.0f}".format(queda).replace(",", "."))
+        return {'ok': True, 'mensaje': mensaje, 'saldo': round(queda)}
 
 
 class AgrogoodCobranza(http.Controller):

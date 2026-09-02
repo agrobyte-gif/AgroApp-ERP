@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        La caja chica se lleva como una lista corta, no como un diario
+        contable: quien saca plata para un peaje es un conductor, y no tiene
+        -ni debe tener- permisos de contabilidad. Cuadrarla con la
+        contabilidad es trabajo mensual de Direccion.
+    -->
+
+    <record id="petty_cash_view_list" model="ir.ui.view">
+        <field name="name">agrogood.petty.cash.list</field>
+        <field name="model">agrogood.petty.cash</field>
+        <field name="arch" type="xml">
+            <list string="Caja chica" create="false"
+                  decoration-success="kind == 'reposicion'"
+                  decoration-warning="kind == 'gasto' and not receipt">
+                <field name="date"/>
+                <field name="kind"/>
+                <field name="category"/>
+                <field name="note" optional="show"/>
+                <field name="user_id"/>
+                <field name="amount" sum="Total"/>
+                <field name="balance_after"/>
+                <field name="receipt" widget="image" width="46px" optional="show"/>
+                <field name="no_receipt_reason" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="petty_cash_view_form" model="ir.ui.view">
+        <field name="name">agrogood.petty.cash.form</field>
+        <field name="model">agrogood.petty.cash</field>
+        <field name="arch" type="xml">
+            <form string="Movimiento de caja chica">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="kind"/>
+                            <field name="amount"/>
+                            <field name="balance_after" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="category" invisible="kind != 'gasto'"
+                                   required="kind == 'gasto'"/>
+                            <field name="note"/>
+                            <field name="user_id"/>
+                            <field name="no_receipt_reason"
+                                   invisible="kind != 'gasto' or receipt"/>
+                        </group>
+                    </group>
+                    <field name="receipt" widget="image"
+                           invisible="kind != 'gasto'"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="petty_cash_view_search" model="ir.ui.view">
+        <field name="name">agrogood.petty.cash.search</field>
+        <field name="model">agrogood.petty.cash</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="note"/>
+                <field name="user_id"/>
+                <filter name="f_gastos" string="Solo gastos"
+                        domain="[('kind', '=', 'gasto')]"/>
+                <filter name="f_reposiciones" string="Reposiciones"
+                        domain="[('kind', '=', 'reposicion')]"/>
+                <!-- El filtro que de verdad se usa al cuadrar el sobre. -->
+                <filter name="f_sin_boleta" string="Gastos sin boleta"
+                        domain="[('kind', '=', 'gasto'), ('receipt', '=', False)]"/>
+                <separator/>
+                <filter name="f_mes" string="Este mes" date="date"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_quien" string="Quien"
+                            context="{'group_by': 'user_id'}"/>
+                    <filter name="g_categoria" string="En que"
+                            context="{'group_by': 'category'}"/>
+                    <filter name="g_mes" string="Mes"
+                            context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="petty_cash_action" model="ir.actions.act_window">
+        <field name="name">Caja chica</field>
+        <field name="res_model">agrogood.petty.cash</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">El sobre esta sin estrenar</p>
+            <p>
+                Los gastos se registran desde el telefono, con la boleta.
+                Reponer el sobre lo hace Direccion: quien gasta no repone, o el
+                saldo dejaria de significar nada.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_caja_chica" name="Caja chica"
+              parent="agrogood_bank.menu_cobros"
+              action="petty_cash_action" sequence="40"/>
+
+</odoo>

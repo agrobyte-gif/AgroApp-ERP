@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= CAJA CHICA ================= -->
+    <!--
+        El gasto se anota donde ocurre: en la feria, en la bomba, con la boleta
+        todavia en la mano. Dejarlo para cuando alguien vuelva a la oficina es
+        como se pierden las boletas y como el sobre deja de cuadrar.
+
+        Reponer el sobre NO esta en esta pantalla. Lo hace Direccion desde el
+        escritorio, y esa separacion es todo el control de una caja chica: si
+        quien saca pudiera tambien rellenar, el saldo siempre cuadraria y no
+        significaria nada.
+    -->
+
+    <template id="caja_home" name="Caja chica">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Caja chica</t>
+            <t t-set="volver">/agrogood/app</t>
+
+            <div class="ag-resumen">
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if saldo &lt;= 0 else ''}">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(saldo).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">queda en el sobre</span>
+                </div>
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(gastado_mes).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">gastado este mes</span>
+                </div>
+            </div>
+
+            <t t-if="sin_boleta">
+                <p class="ag-warn">
+                    Hay <strong><t t-esc="sin_boleta"/></strong> gastos sin
+                    boleta. Direccion los va a preguntar al cuadrar el sobre.
+                </p>
+            </t>
+
+            <h2 class="ag-h2">Anotar un gasto</h2>
+            <section id="et-form" class="ag-etapa">
+                <div class="ag-note">
+                    <label class="ag-h">Cuanto</label>
+                    <input type="number" id="c-monto" class="ag-qty" step="1"
+                           min="0" inputmode="numeric" placeholder="0"/>
+
+                    <label class="ag-h">En que</label>
+                    <select id="c-categoria" class="ag-select">
+                        <option value="">Elegir...</option>
+                        <t t-foreach="categorias" t-as="c">
+                            <option t-att-value="c[0]"><t t-esc="c[1]"/></option>
+                        </t>
+                    </select>
+
+                    <label class="ag-h">Detalle</label>
+                    <input type="text" id="c-detalle" class="ag-select"
+                           placeholder="Peaje ida y vuelta a Coronel"/>
+
+                    <!-- La boleta primero, y la excusa despues: el orden empuja
+                         a sacar la foto, que es lo que se quiere. -->
+                    <label class="ag-btn ag-btn-ghost ag-file">
+                        Sacar foto de la boleta
+                        <input type="file" id="c-boleta" accept="image/*"
+                               capture="environment" hidden="hidden"/>
+                    </label>
+                    <div id="c-boleta-nombre" class="ag-muted"></div>
+
+                    <div id="c-sin-boleta" class="ag-oculto">
+                        <label class="ag-h">No hay boleta. Por que</label>
+                        <input type="text" id="c-motivo" class="ag-select"
+                               placeholder="No dieron boleta en el puesto"/>
+                    </div>
+
+                    <button type="button" id="btn-gasto"
+                            class="ag-btn ag-btn-primary ag-btn-xl">
+                        Anotar el gasto
+                    </button>
+                </div>
+                <p class="ag-muted ag-pad">
+                    Sin boleta hay que decir por que. Un gasto sin respaldo no
+                    se distingue de una plata que falta, y a fin de mes la
+                    pregunta te la van a hacer igual.
+                </p>
+            </section>
+
+            <section id="et-hecho" class="ag-etapa ag-oculto">
+                <div class="ag-done-banner" id="hecho-texto"></div>
+                <a href="/agrogood/caja" class="ag-btn ag-btn-primary ag-btn-xl">
+                    Anotar otro gasto
+                </a>
+                <a href="/agrogood/app" class="ag-btn ag-btn-ghost">Volver</a>
+            </section>
+
+            <h2 class="ag-h2">Lo ultimo</h2>
+            <t t-if="not movimientos">
+                <p class="ag-muted ag-pad">El sobre esta sin estrenar.</p>
+            </t>
+            <t t-foreach="movimientos" t-as="m">
+                <div t-attf-class="ag-card #{'ag-card-active' if m.kind == 'gasto' and not m.receipt else ''}">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title">
+                            <t t-if="m.kind == 'reposicion'">Reposicion del sobre</t>
+                            <t t-else="">
+                                <t t-esc="dict(m._fields['category'].selection).get(m.category, 'Gasto')"/>
+                            </t>
+                        </span>
+                        <span class="ag-card-sub">
+                            <t t-esc="m.date"/> · <t t-esc="m.user_id.name"/>
+                            <t t-if="m.note"> · <t t-esc="m.note"/></t>
+                            <t t-if="m.kind == 'gasto' and not m.receipt">
+                                · sin boleta
+                            </t>
+                        </span>
+                    </div>
+                    <span t-attf-class="ag-chip #{'ag-chip-ok' if m.kind == 'reposicion' else 'ag-chip-soft'}">
+                        <t t-if="m.kind == 'gasto'">-</t>
+                        <t t-esc="'{:,.0f}'.format(m.amount).replace(',', '.')"/>
+                    </span>
+                </div>
+            </t>
+
+            <p class="ag-muted ag-pad">
+                Reponer el sobre lo hace Direccion desde el escritorio. Quien
+                gasta no repone: si fuera la misma persona, el saldo siempre
+                cuadraria y no diria nada.
+            </p>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/caja.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/caja.js?v=#{v}"/>
+        </t>
+    </template>
+
+</odoo>

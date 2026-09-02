@@ -49,6 +49,7 @@ ve sobrar: forzarlo a cuadrar seria inventar la deuda que falta.
         'security/ir.model.access.csv',
         'views/agrogood_bank_movement_views.xml',
         'views/cuenta_corriente_views.xml',
+        'views/petty_cash_views.xml',
         'wizard/agrogood_bank_import_views.xml',
         'views/menus.xml',
     ],
