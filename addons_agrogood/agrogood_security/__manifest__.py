@@ -34,6 +34,7 @@ reglas propias se reservan para lo que el estandar no cubre.
     ],
     'data': [
         'security/agrogood_role_mapping.xml',
+        'security/agrogood_record_rules.xml',
     ],
     'installable': True,
 }

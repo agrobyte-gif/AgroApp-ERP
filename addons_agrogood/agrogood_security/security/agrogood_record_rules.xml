@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="0">
+
+    <!--
+        Lo que el mapeo de roles DICE y lo que Odoo hace no coincidian.
+
+        `agrogood_role_mapping.xml` promete, en sus comentarios, que Compras no
+        toca pedidos de cliente y que Ventas no escribe ordenes al proveedor.
+        Una revision lo comprobo ejecutando -entrando como cada persona e
+        intentando hacer lo que no deberia- y las dos promesas eran falsas:
+
+          * `stock.group_stock_user` trae permiso de ESCRITURA sobre
+            `sale.order`. Es de Odoo y tiene su motivo -al validar una entrega
+            hay que actualizar el pedido-, pero de paso deja que Bodega,
+            Logistica y Compras cambien un pedido de cliente.
+          * `account.group_account_invoice` trae escritura sobre
+            `purchase.order`, para poder facturar compras. De paso deja que
+            Ventas cree ordenes a proveedores.
+
+        Los permisos de modelo de Odoo solo SUMAN: no hay forma de quitarle a
+        un grupo lo que otro le dio. Lo que si se puede es acotar por reglas de
+        registro, que es lo que hay aqui.
+
+        Como funciona, porque es facil equivocarse: las reglas de un usuario se
+        combinan con O. Por eso van en pareja -una permisiva para quien SI debe
+        poder, otra imposible para quien no-. Quien esta en los dos grupos
+        -Victor, que lo esta en todos- se queda con la permisiva y no nota
+        nada; quien solo esta en el grupo de mas, se queda sin escribir.
+
+        Se comprobo ademas lo que importaba de verdad: con estas reglas puestas,
+        Bodega SIGUE pudiendo validar una entrega y leer el pedido que prepara.
+        Bloquear la escritura sin comprobar eso habria dejado a Bodega sin poder
+        despachar, que es mucho peor que el problema que se venia a resolver.
+    -->
+
+    <!-- ============ PEDIDOS DE CLIENTE ============ -->
+
+    <record id="rule_sale_order_ventas" model="ir.rule">
+        <field name="name">Pedidos de cliente: los modifica Ventas</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_sales')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+        ]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_sale_order_bodega_solo_lee" model="ir.rule">
+        <field name="name">Pedidos de cliente: Bodega y Logistica solo leen</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="domain_force">[(0, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('stock.group_stock_user')),
+        ]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- ============ ORDENES AL PROVEEDOR ============ -->
+
+    <record id="rule_purchase_order_compras" model="ir.rule">
+        <field name="name">Ordenes al proveedor: las hace Compras</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('agrogood_base.group_agrogood_purchase')),
+            Command.link(ref('agrogood_base.group_agrogood_general_admin')),
+        ]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="rule_purchase_order_ventas_solo_lee" model="ir.rule">
+        <field name="name">Ordenes al proveedor: Ventas solo lee</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="domain_force">[(0, '=', 1)]</field>
+        <field name="groups" eval="[
+            Command.link(ref('account.group_account_invoice')),
+        ]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+</odoo>
