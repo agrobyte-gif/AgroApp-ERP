@@ -324,6 +324,15 @@
                         <button class="ag-btn ag-btn-bad" data-action="not_delivered">
                             No entregado
                         </button>
+                        <!--
+                            Reprogramar pide el dia. Sin fecha la entrega
+                            desaparecia de la ruta de hoy y no aparecia en la
+                            de ningun otro dia: se quedaba esperando a que
+                            alguien se acordara. Con fecha, el albaran vuelve a
+                            la lista de Logistica de ese dia.
+                        -->
+                        <label class="ag-h">Volver a intentarlo el</label>
+                        <input type="date" id="ag-reprograma" class="ag-select"/>
                         <button class="ag-btn ag-btn-warn" data-action="rescheduled">
                             Reprogramar
                         </button>

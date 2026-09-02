@@ -11,6 +11,10 @@
         <t t-call="agrogood_pwa.layout">
             <t t-set="titulo">Bodega</t>
 
+            <a href="/agrogood/bodega/inventario" class="ag-btn ag-btn-ghost">
+                Ajustar inventario
+            </a>
+
             <h2 class="ag-h2">Por recibir</h2>
             <t t-if="not recepciones">
                 <p class="ag-muted ag-pad">No hay compras esperando.</p>
@@ -213,6 +217,62 @@
             <t t-set="v" t-value="env['agrogood.estaticos'].version(
                 'agrogood_pwa/static/src/js/bodega.js')"/>
             <script t-attf-src="/agrogood_pwa/static/src/js/bodega.js?v=#{v}"/>
+        </t>
+    </template>
+
+    <!-- ============ BODEGA: AJUSTE DE INVENTARIO ============ -->
+    <!--
+        Se cuenta un producto y se deja lo que dice el sistema igual a lo que
+        hay en el estante. Sirve para las cuadraturas y para corregir un error
+        de recepcion sin esperar a sentarse.
+
+        El motivo es obligatorio. Un ajuste es dinero que aparece o desaparece
+        del balance sin que nadie haya comprado ni vendido: sin explicacion, en
+        la cuadratura del mes nadie puede decir si fue merma, error de
+        recepcion o robo.
+    -->
+
+    <template id="bodega_inventario" name="Bodega - ajustar inventario">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Ajustar inventario</t>
+            <t t-set="volver">/agrogood/bodega</t>
+
+            <input type="search" id="q-producto" class="ag-buscar"
+                   placeholder="Buscar producto" autocomplete="off"/>
+            <div id="lista-productos"></div>
+
+            <section id="et-contar" class="ag-etapa ag-oculto">
+                <div class="ag-head-block">
+                    <span class="ag-card-title" id="p-nombre"></span>
+                    <span class="ag-card-sub" id="p-actual"></span>
+                </div>
+
+                <div id="p-lotes" class="ag-oculto">
+                    <label class="ag-h">De que lote</label>
+                    <select id="p-lote" class="ag-select"></select>
+                </div>
+
+                <label class="ag-h">Cuanto hay de verdad</label>
+                <input type="number" id="p-contado" class="ag-qty" step="0.1"
+                       min="0" inputmode="decimal"/>
+                <div id="p-diferencia" class="ag-muted ag-pad"></div>
+
+                <label class="ag-h">Por que cuadra distinto</label>
+                <input type="text" id="p-motivo" class="ag-select"
+                       placeholder="Se paso de maduro, llego menos de lo anotado, ..."/>
+
+                <button type="button" id="btn-ajustar"
+                        class="ag-btn ag-btn-primary ag-btn-xl">
+                    Dejarlo en lo contado
+                </button>
+                <button type="button" id="btn-otro" class="ag-btn ag-btn-ghost">
+                    Contar otro producto
+                </button>
+            </section>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/bodega_inventario.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/bodega_inventario.js?v=#{v}"/>
         </t>
     </template>
 

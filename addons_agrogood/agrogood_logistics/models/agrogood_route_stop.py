@@ -90,12 +90,38 @@ class AgrogoodRouteStop(models.Model):
     gps_latitude = fields.Float(string="Latitud registrada", digits=(10, 7), readonly=True)
     gps_longitude = fields.Float(string="Longitud registrada", digits=(10, 7), readonly=True)
 
+    reschedule_date = fields.Date(
+        string="Se reprograma para",
+        help="El dia en que se vuelve a intentar la entrega.",
+    )
+
     company_id = fields.Many2one(related='route_id.company_id', store=True)
 
-    _sql_constraints = [
-        ('picking_uniq', 'unique(picking_id)',
-         "Este albaran ya esta en una ruta."),
-    ]
+    # Antes habia una restriccion SQL de un albaran por parada. Impedia lo
+    # unico que hace falta cuando una entrega falla: volver a intentarla otro
+    # dia. Por eso "reprogramar" solo ponia una etiqueta y la entrega quedaba
+    # colgada hasta que alguien la veia en el escritorio.
+    #
+    # Ahora se permite mas de una parada por albaran siempre que las anteriores
+    # esten REPROGRAMADAS. Una parada reprogramada es historia -se intento ese
+    # dia y no se pudo-; las demas retienen el albaran, porque un albaran en
+    # dos rutas vivas a la vez es una entrega que sale dos veces.
+    @api.constrains('picking_id', 'state')
+    def _check_una_ruta_viva(self):
+        for s in self:
+            if not s.picking_id or s.state == 'rescheduled':
+                continue
+            otras = self.search([
+                ('picking_id', '=', s.picking_id.id),
+                ('id', '!=', s.id),
+                ('state', '!=', 'rescheduled'),
+            ])
+            if otras:
+                raise ValidationError(_(
+                    "%(albaran)s ya esta en la ruta %(ruta)s. Una entrega no "
+                    "puede salir en dos rutas a la vez.",
+                    albaran=s.picking_id.name,
+                    ruta=otras[0].route_id.display_name))
 
     # ------------------------------------------------------------------
 
@@ -218,19 +244,55 @@ class AgrogoodRouteStop(models.Model):
         return True
 
     def action_rescheduled(self):
+        """Deja la entrega para otro dia, y la devuelve al reparto de ese dia.
+
+        Exige la fecha ademas del motivo. Sin fecha, reprogramar es solo una
+        etiqueta: la entrega desaparece de la ruta de hoy, no aparece en la de
+        ningun otro dia, y se queda esperando a que alguien se acuerde. Con
+        fecha, el albaran vuelve a la lista de Logistica de ese dia y se arma
+        una ruta nueva con el como con cualquier otro.
+        """
         for s in self:
             if not s.failure_reason:
                 raise UserError(_(
                     "Indica el motivo de la reprogramacion en %s.",
                     s.partner_id.display_name,
                 ))
+            if not s.reschedule_date:
+                raise UserError(_(
+                    "Di para que dia se reprograma la entrega de %s. Sin "
+                    "fecha se quedaria sin ruta y sin nadie esperandola.",
+                    s.partner_id.display_name,
+                ))
+            hoy = fields.Date.context_today(s)
+            if s.reschedule_date <= hoy:
+                raise UserError(_(
+                    "La entrega de %(cliente)s se reprograma para el "
+                    "%(fecha)s, que ya paso o es hoy mismo. Si es para hoy, no "
+                    "hace falta reprogramarla.",
+                    cliente=s.partner_id.display_name,
+                    fecha=s.reschedule_date))
             s.state = 'rescheduled'
+            # El albaran se mueve al dia nuevo. Es lo que lo devuelve a la
+            # lista de Logistica: sin esto seguiria fechado para hoy y saldria
+            # como atrasado todos los dias hasta que alguien lo tocara.
+            if s.picking_id:
+                s.picking_id.scheduled_date = fields.Datetime.to_datetime(
+                    s.reschedule_date)
             if s.sale_order_id:
                 s.sale_order_id.write({
                     'agrogood_exception': 'rescheduled',
-                    'agrogood_exception_note': s.stop_note or dict(
-                        MOTIVOS_FALLO)[s.failure_reason],
+                    'agrogood_exception_note': _(
+                        "Reprogramada para el %(fecha)s. %(motivo)s",
+                        fecha=s.reschedule_date,
+                        motivo=s.stop_note or dict(
+                            MOTIVOS_FALLO)[s.failure_reason]),
                 })
+                s.sale_order_id.message_post(body=_(
+                    "Entrega reprogramada para el %(fecha)s: %(motivo)s",
+                    fecha=s.reschedule_date,
+                    motivo=s.stop_note or dict(
+                        MOTIVOS_FALLO)[s.failure_reason]))
         return True
 
     def _exception_for_sale(self):

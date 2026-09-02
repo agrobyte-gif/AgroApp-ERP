@@ -227,6 +227,16 @@
                     const nota = document.getElementById("ag-stopnote");
                     if (nota && nota.value) params.note = nota.value;
                 }
+                if (accion === "rescheduled") {
+                    // La fecha se pide aqui y el servidor la vuelve a exigir.
+                    // Avisar en el telefono ahorra el viaje de ida y vuelta,
+                    // que en la calle y con mala senal no es gratis.
+                    const dia = document.getElementById("ag-reprograma");
+                    if (!dia || !dia.value) {
+                        return aviso("Di para que dia se reprograma.", true);
+                    }
+                    params.fecha = dia.value;
+                }
                 if (accion !== "arrived") {
                     Object.assign(params, await ubicacion());
                 }

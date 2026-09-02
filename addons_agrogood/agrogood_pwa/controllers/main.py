@@ -336,7 +336,7 @@ class AgrogoodPwa(http.Controller):
     @http.route('/agrogood/api/driver/stop', type='json', auth='user')
     def api_parada(self, stop_id, accion, received_by=None, note=None,
                    reason=None, signature=None, photo=None,
-                   latitude=None, longitude=None, **kw):
+                   latitude=None, longitude=None, fecha=None, **kw):
         """Aplica lo que el conductor marca en una parada.
 
         La ubicacion se guarda tal como la reporta el navegador. No se usa para
@@ -353,6 +353,8 @@ class AgrogoodPwa(http.Controller):
             valores['stop_note'] = note
         if reason:
             valores['failure_reason'] = reason
+        if fecha:
+            valores['reschedule_date'] = fecha
         if signature:
             valores['signature'] = signature
         if photo:
@@ -1032,6 +1034,133 @@ class AgrogoodBodega(http.Controller):
         except (UserError, ValidationError) as e:
             return {'ok': False, 'mensaje': str(e)}
         return {'ok': True, 'mensaje': _("Merma registrada: %s", merma.name)}
+
+
+    # ------------------------------------------------------------------
+    # Ajuste de inventario
+    # ------------------------------------------------------------------
+
+    def _almacen(self):
+        return request.env['stock.warehouse'].sudo().search(
+            [('company_id', '=', request.env.company.id)], limit=1)
+
+    @http.route('/agrogood/bodega/inventario', type='http', auth='user',
+                website=False)
+    def bodega_inventario(self, **kw):
+        if not self._es_bodega():
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.bodega_inventario', {})
+
+    @http.route('/agrogood/api/bodega/existencias', type='json', auth='user')
+    def api_existencias(self, product_id, **kw):
+        """Lo que dice el sistema que hay de ese producto, ahora.
+
+        Se devuelve tambien si lleva lotes: en un producto con lote, contar
+        "hay 40 kg" no significa nada, porque los 40 pueden ser de tres lotes
+        con tres vencimientos distintos y el ajuste tiene que decir de cual.
+        """
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        producto = request.env['product.product'].sudo().browse(int(product_id))
+        almacen = self._almacen()
+        quants = request.env['stock.quant'].sudo().search([
+            ('product_id', '=', producto.id),
+            ('location_id', 'child_of', almacen.lot_stock_id.id),
+        ])
+        return {
+            'id': producto.id,
+            'nombre': producto.display_name,
+            'uom': producto.uom_id.name,
+            'por_lote': producto.tracking == 'lot',
+            'existencias': round(sum(quants.mapped('quantity')), 2),
+            'lotes': [{
+                'id': q.lot_id.id,
+                'nombre': q.lot_id.name,
+                'cantidad': round(q.quantity, 2),
+                'vence': q.lot_id.expiration_date
+                         and q.lot_id.expiration_date.strftime('%d/%m'),
+            } for q in quants.filtered('lot_id').sorted(
+                lambda x: x.lot_id.expiration_date or fields.Datetime.now())],
+        }
+
+    @http.route('/agrogood/api/bodega/ajustar', type='json', auth='user')
+    def api_ajustar(self, product_id, contado, motivo=None, lot_id=None, **kw):
+        """Deja las existencias en lo que se conto, y anota quien y por que.
+
+        Un ajuste de inventario es dinero que aparece o desaparece del balance
+        sin que nadie haya comprado ni vendido nada. Por eso se exige el
+        motivo: sin el, la diferencia queda como un numero suelto y en la
+        cuadratura del mes nadie puede decir si fue una merma, un error de
+        recepcion o un robo.
+        """
+        if not self._es_bodega():
+            raise AccessError(_("No tienes permiso de Bodega."))
+        if not (motivo or '').strip():
+            return {'ok': False, 'mensaje': _(
+                "Anota por que cuadra distinto. Una diferencia sin explicacion "
+                "no se puede revisar despues.")}
+        try:
+            contado = float(contado)
+        except (TypeError, ValueError):
+            return {'ok': False, 'mensaje': _("La cantidad contada no es un numero.")}
+        if contado < 0:
+            return {'ok': False, 'mensaje': _("No se puede contar en negativo.")}
+
+        producto = request.env['product.product'].sudo().browse(int(product_id))
+        if producto.tracking == 'lot' and not lot_id:
+            return {'ok': False, 'mensaje': _(
+                "%(producto)s se lleva por lotes: di de que lote es el conteo.",
+                producto=producto.display_name)}
+
+        almacen = self._almacen()
+        dominio = [('product_id', '=', producto.id),
+                   ('location_id', '=', almacen.lot_stock_id.id)]
+        if lot_id:
+            dominio.append(('lot_id', '=', int(lot_id)))
+        Quant = request.env['stock.quant'].sudo().with_context(inventory_mode=True)
+        quant = Quant.search(dominio, limit=1)
+        antes = quant.quantity if quant else 0.0
+        try:
+            if not quant:
+                quant = Quant.create({
+                    'product_id': producto.id,
+                    'location_id': almacen.lot_stock_id.id,
+                    'lot_id': int(lot_id) if lot_id else False,
+                    'inventory_quantity': contado,
+                })
+            else:
+                quant.inventory_quantity = contado
+            quant.inventory_quantity_set = True
+            quant._apply_inventory()
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+
+        diferencia = contado - antes
+        # Queda en la ficha del producto y no solo en el movimiento. Es donde
+        # mira quien pregunta "por que este producto cuadra mal todos los
+        # meses", que es la pregunta util; el movimiento suelto solo responde
+        # "el 3 de marzo faltaban 4 kg".
+        producto.product_tmpl_id.sudo().message_post(body=_(
+            "Inventario ajustado por %(quien)s: habia %(antes)s, se contaron "
+            "%(contado)s %(uom)s (%(signo)s%(dif)s). %(motivo)s",
+            quien=request.env.user.name,
+            antes="{:g}".format(antes), contado="{:g}".format(contado),
+            uom=producto.uom_id.name,
+            signo="+" if diferencia > 0 else "",
+            dif="{:g}".format(diferencia),
+            motivo=motivo.strip()))
+        return {
+            'ok': True,
+            'antes': round(antes, 2),
+            'ahora': round(contado, 2),
+            'diferencia': round(diferencia, 2),
+            'mensaje': _(
+                "%(producto)s: habia %(antes)s y ahora quedan %(ahora)s "
+                "%(uom)s.",
+                producto=producto.display_name,
+                antes="{:g}".format(antes), ahora="{:g}".format(contado),
+                uom=producto.uom_id.name),
+        }
 
 
 class AgrogoodLogistica(http.Controller):
