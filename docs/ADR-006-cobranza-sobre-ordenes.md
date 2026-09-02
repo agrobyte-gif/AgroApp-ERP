@@ -72,3 +72,54 @@ repartir mas de lo que trae el abono, ni dejar una orden pagada de mas.
   (`agrogood_credit_days`) y no como condiciones de pago contables. Cero es
   contado. Se eligio lo simple porque lo que hace falta es saber a quien llamar
   hoy, no construir un calendario de vencimientos.
+
+---
+
+## Añadido (2026-09-01): el plazo se congela, y la cobranza en el telefono
+
+### El plazo pactado vale el del dia de la venta
+
+Al principio el vencimiento se calculaba leyendo los dias de plazo de la ficha
+del cliente. Una prueba lo destapo: **ampliarle el plazo a un cliente moroso
+descontaba de golpe todas sus entregas vencidas** y lo sacaba de la lista de
+cobranza sin haber pagado nada. Un numero en una ficha borraba la deuda de la
+pantalla.
+
+Ahora el plazo se copia a la orden al elegir el cliente y se queda ahi. Cambiar
+la ficha afecta a lo que se venda desde entonces, no a lo ya entregado. Vale lo
+que se pacto ese dia.
+
+### Cobrar es una conversacion
+
+La pantalla de Cobranza en el telefono existe porque cobrar no se hace sentado:
+se hace con el telefono en la mano, mirando cuanto debe el cliente y desde
+cuando. Lo unico que hace falta anotar despues de colgar es que dijo.
+
+El orden de la lista es el orden en que hay que llamar:
+
+1. **Los que ya prometieron y llego el dia.** Es la lista mas corta y la que
+   mas rinde: ya hubo conversacion, y volver a llamar el dia que dijeron es lo
+   que separa una promesa de una excusa.
+2. **Los vencidos**, del que mas debe al que menos.
+3. **Los que deben y aun no vencen**, para consultarlos, no para llamarlos.
+
+Se ordena por lo VENCIDO y no por el saldo total: un cliente que debe mucho y
+no ha vencido nada esta al dia, y ordenar por saldo lo pondria arriba, que es
+justo a quien no hay que llamar.
+
+La promesa se guarda en dos sitios a proposito. El campo responde *cuando dijo
+que pagaba*; la conversacion del cliente responde *cuantas veces lo ha dicho
+ya*, que es la pregunta que decide si se le sigue llamando o se le corta el
+credito. Solo con el campo, cada promesa borra la anterior y el que promete
+todos los viernes parece igual de fiable que el que cumple.
+
+**Imputar abonos no esta en el telefono.** Eso se hace sentado y con la cartola
+delante; meterlo aqui seria llenar de riesgo una pantalla que se usa de pie.
+
+### Efecto secundario a vigilar
+
+Ventas gana una pantalla, de modo que quien solo tenia Ventas pasa de entrar
+directo a elegir entre dos. Es un toque mas cada dia. Se acepto porque cobrar y
+vender son trabajos distintos y la persona que llama al cliente es la misma que
+le vende; si en la practica Ventas no cobra, la pantalla deberia quedar solo
+para Direccion.

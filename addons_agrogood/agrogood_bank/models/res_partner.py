@@ -1,4 +1,4 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 
 class ResPartner(models.Model):
@@ -39,6 +39,18 @@ class ResPartner(models.Model):
              "numero que decide a quien se llama primero.",
     )
 
+    # Lo unico que se anota durante una llamada de cobranza. Vive en el cliente
+    # y no en un modelo de promesas porque lo que hace falta consultar es la
+    # ULTIMA -"a este ya lo llamamos y dijo el viernes"-, y el historial queda
+    # en su conversacion, que es donde alguien va a buscarlo.
+    agrogood_payment_promise_date = fields.Date(
+        string="Prometio pagar el", copy=False,
+        help="Lo que dijo el cliente la ultima vez que se le llamo.",
+    )
+    agrogood_payment_promise_note = fields.Char(
+        string="Que dijo", copy=False,
+    )
+
     @api.depends('sale_order_ids.agrogood_due_amount',
                  'sale_order_ids.agrogood_due_date',
                  'sale_order_ids.agrogood_collection_state')
@@ -55,6 +67,31 @@ class ResPartner(models.Model):
                 vencidas.mapped('agrogood_due_amount'))
             fechas = [o.agrogood_due_date for o in vencidas if o.agrogood_due_date]
             socio.agrogood_oldest_due_days = (hoy - min(fechas)).days if fechas else 0
+
+    def agrogood_registrar_promesa(self, fecha=None, nota=None):
+        """Anota lo que dijo el cliente y lo deja en su conversacion.
+
+        Se guarda el campo Y se publica en el chatter. El campo responde
+        "cuando dijo que pagaba"; el chatter responde "cuantas veces lo ha
+        dicho ya", que es la pregunta que decide si se le sigue llamando o se
+        le corta el credito. Solo con el campo, cada promesa borra la anterior
+        y el cliente que promete todos los viernes parece igual de fiable que
+        el que cumple.
+        """
+        self.ensure_one()
+        self.write({
+            'agrogood_payment_promise_date': fecha or False,
+            'agrogood_payment_promise_note': (nota or '').strip() or False,
+        })
+        partes = [_("Cobranza: se le llamo.")]
+        if fecha:
+            partes.append(_("Dijo que paga el %s.", fecha))
+        if nota:
+            partes.append(nota.strip())
+        partes.append(_("Debia %(saldo)s en ese momento.",
+                        saldo=self.agrogood_balance))
+        self.message_post(body=" ".join(partes))
+        return True
 
     def action_agrogood_cuenta_corriente(self):
         """Las ordenes por cobrar de este cliente."""

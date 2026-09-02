@@ -64,6 +64,12 @@ class AgrogoodPwa(http.Controller):
                 'sub': "Tomar pedidos y ver el dia",
                 'url': '/agrogood/ventas',
             })
+        if tiene('group_agrogood_sales') or tiene('group_agrogood_general_admin'):
+            accesos.append({
+                'clave': 'cobranza', 'nombre': "Cobranza",
+                'sub': "A quien llamar y cuanto debe",
+                'url': '/agrogood/cobranza',
+            })
         if tiene('group_agrogood_purchase'):
             accesos.append({
                 'clave': 'compras', 'nombre': "Compras",
@@ -1149,15 +1155,16 @@ class AgrogoodDireccion(http.Controller):
             lambda o: o.agrogood_state not in ('delivered', 'invoiced', 'closed',
                                                'cancelled'))
 
-        # Por cobrar. `amount_residual` es lo que queda, no el total: una
-        # factura pagada a medias cuenta solo por su mitad pendiente.
-        Factura = request.env['account.move']
-        impagas = Factura.search([
-            ('move_type', '=', 'out_invoice'), ('state', '=', 'posted'),
-            ('payment_state', 'in', ('not_paid', 'partial')),
+        # Por cobrar, sobre ORDENES DE COMPRA y no sobre facturas. La factura
+        # se emite en el portal del SII y en Odoo no existe: mientras esto
+        # miraba `account.move`, el panel enseno un cero constante a Direccion,
+        # que es la peor forma de estar roto -no parece averiado, parece que no
+        # se debe nada-. Ver ADR-006.
+        impagas = SO.search([
+            ('agrogood_collection_state', 'in', ('open', 'partial')),
         ])
         vencidas = impagas.filtered(
-            lambda f: f.invoice_date_due and f.invoice_date_due < hoy)
+            lambda o: o.agrogood_due_date and o.agrogood_due_date < hoy)
 
         mermas = request.env['stock.scrap'].search([
             ('state', '=', 'done'), ('write_date', '>=',
@@ -1174,9 +1181,9 @@ class AgrogoodDireccion(http.Controller):
             'mes_monto': sum(vendidas_mes.mapped('amount_untaxed')),
             'por_entregar_n': len(por_entregar),
             'por_entregar_monto': sum(por_entregar.mapped('amount_untaxed')),
-            'por_cobrar': sum(impagas.mapped('amount_residual')),
+            'por_cobrar': sum(impagas.mapped('agrogood_due_amount')),
             'por_cobrar_n': len(impagas),
-            'vencido': sum(vencidas.mapped('amount_residual')),
+            'vencido': sum(vencidas.mapped('agrogood_due_amount')),
             'vencido_n': len(vencidas),
             'merma_monto': sum(mermas.mapped('agrogood_cost')),
             'merma_n': len(mermas),
@@ -1188,3 +1195,117 @@ class AgrogoodDireccion(http.Controller):
                 [('state', '=', 'pending')]),
             'usuario': request.env.user,
         })
+
+
+class AgrogoodCobranza(http.Controller):
+    """Cobranza en el telefono: llamar con el saldo delante.
+
+    Cobrar es una conversacion, no una pantalla de escritorio. Se hace con el
+    telefono en la mano, mirando cuanto debe el cliente y desde cuando, y lo
+    unico que se anota despues de colgar es que dijo. Todo lo demas -imputar
+    abonos, revisar la cartola- se hace sentado y esta en el escritorio.
+
+    El orden es por lo VENCIDO y no por el saldo total. Un cliente que debe
+    mucho y no ha vencido nada esta al dia; el que debe poco desde hace dos
+    meses es el que se convierte en incobrable. Ordenar por saldo pone arriba
+    al primero, que es justo a quien no hay que llamar.
+    """
+
+    def _es_cobranza(self):
+        u = request.env.user
+        return (u.has_group('agrogood_base.group_agrogood_sales')
+                or u.has_group('agrogood_base.group_agrogood_general_admin'))
+
+    def _mi_deudor(self, partner_id):
+        socio = request.env['res.partner'].browse(int(partner_id))
+        socio.check_access('read')
+        return socio
+
+    @http.route('/agrogood/cobranza', type='http', auth='user', website=False)
+    def cobranza_home(self, **kw):
+        if not self._es_cobranza():
+            return request.redirect('/agrogood/app')
+        hoy = fields.Date.context_today(request.env.user)
+        Socio = request.env['res.partner']
+        deudores = Socio.search(
+            [('agrogood_balance', '>', 0)],
+            order='agrogood_overdue_balance desc, agrogood_balance desc')
+
+        # Quien prometio pagar para hoy o para antes y sigue debiendo. Es la
+        # lista mas corta y la que mas rinde: ya hubo una conversacion, y
+        # volver a llamar el dia que dijo es lo que separa una promesa de una
+        # excusa.
+        prometieron = deudores.filtered(
+            lambda s: s.agrogood_payment_promise_date
+            and s.agrogood_payment_promise_date <= hoy)
+        vencidos = deudores.filtered(
+            lambda s: s.agrogood_overdue_balance > 0 and s not in prometieron)
+        al_dia = deudores - prometieron - vencidos
+
+        return request.render('agrogood_pwa.cobranza_home', {
+            'prometieron': prometieron,
+            'vencidos': vencidos,
+            'al_dia': al_dia,
+            'total': sum(deudores.mapped('agrogood_balance')),
+            'total_vencido': sum(deudores.mapped('agrogood_overdue_balance')),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/cobranza/<int:partner_id>', type='http',
+                auth='user', website=False)
+    def cobranza_cliente(self, partner_id, **kw):
+        if not self._es_cobranza():
+            return request.redirect('/agrogood/app')
+        socio = self._mi_deudor(partner_id)
+        hoy = fields.Date.context_today(request.env.user)
+        ordenes = request.env['sale.order'].search([
+            ('partner_id', 'child_of', socio.commercial_partner_id.id),
+            ('agrogood_collection_state', 'in', ('open', 'partial')),
+        ], order='date_order asc')
+        abonos = request.env['agrogood.bank.movement'].search([
+            ('partner_id', '=', socio.id),
+        ], order='date desc', limit=8)
+        return request.render('agrogood_pwa.cobranza_cliente', {
+            'socio': socio,
+            'ordenes': ordenes,
+            'abonos': abonos,
+            'hoy': hoy,
+            'telefono': self._telefono_internacional(socio),
+            'usuario': request.env.user,
+        })
+
+    def _telefono_internacional(self, socio):
+        """El numero en formato internacional, para el enlace de WhatsApp.
+
+        WhatsApp no acepta un numero local: `wa.me/912345678` no abre nada. Se
+        antepone el 56 de Chile cuando el numero no trae ya un prefijo, y se
+        devuelve vacio si no queda un numero verosimil, para no pintar un boton
+        que lleva a una pantalla de error.
+        """
+        bruto = socio.mobile or socio.phone or ''
+        digitos = ''.join(c for c in bruto if c.isdigit())
+        if not digitos:
+            return ''
+        if digitos.startswith('56') and len(digitos) >= 11:
+            return digitos
+        digitos = digitos.lstrip('0')
+        if len(digitos) == 9:
+            return '56' + digitos
+        return ''
+
+    @http.route('/agrogood/api/cobranza/promesa', type='json', auth='user')
+    def api_promesa(self, partner_id, fecha=None, nota=None, **kw):
+        """Anota lo que dijo el cliente al colgar."""
+        if not self._es_cobranza():
+            raise AccessError(_("No tienes permiso de Cobranza."))
+        socio = self._mi_deudor(partner_id)
+        if not fecha and not (nota or '').strip():
+            return {'ok': False,
+                    'mensaje': _("Anota al menos la fecha o que dijo.")}
+        try:
+            socio.sudo().agrogood_registrar_promesa(fecha=fecha or None,
+                                                    nota=nota)
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {'ok': True,
+                'mensaje': _("Anotado en %s.", socio.display_name)}

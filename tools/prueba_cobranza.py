@@ -139,6 +139,7 @@ print()
 print("UNA TRANSFERENCIA QUE CUBRE VARIAS ENTREGAS")
 
 hoy = fields.Date.context_today(cliente)
+cliente.write({'agrogood_credit_days': 0})    # estas dos se pactan al contado
 pedidos = []
 for dias, cantidad in ((10, 10), (3, 10)):
     p = env['sale.order'].create({
@@ -153,13 +154,19 @@ for dias, cantidad in ((10, 10), (3, 10)):
     pedidos.append(p)
 vieja, nueva = pedidos
 
-cliente.write({'agrogood_credit_days': 0})
-vieja.invalidate_recordset()
-nueva.invalidate_recordset()
-cliente.invalidate_recordset()
 paso("Sin plazo pactado, lo entregado hace diez dias esta vencido",
      vieja.agrogood_overdue_days >= 9 and cliente.agrogood_overdue_balance > 0,
      "atraso mas antiguo: %d dias" % cliente.agrogood_oldest_due_days)
+
+# Ampliarle el plazo a un cliente moroso NO puede descontar sus entregas ya
+# vencidas: vale el plazo que se pacto ese dia, no el de hoy. Sin esto, un
+# cliente desaparece de la lista de cobranza cambiandole un numero en la ficha.
+cliente.write({'agrogood_credit_days': 60})
+vieja.invalidate_recordset()
+cliente.invalidate_recordset()
+paso("Ampliar el plazo del cliente no re-fecha lo ya entregado",
+     vieja.agrogood_overdue_days >= 9 and vieja.agrogood_credit_days == 0,
+     "la orden conserva sus %d dias de plazo" % vieja.agrogood_credit_days)
 
 # Una transferencia que cubre la entrega vieja entera y parte de la nueva.
 parcial = vieja.agrogood_due_amount + nueva.agrogood_due_amount / 2.0

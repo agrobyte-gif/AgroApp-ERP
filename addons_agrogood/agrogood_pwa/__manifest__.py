@@ -26,6 +26,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
     'license': 'LGPL-3',
     'depends': [
         'agrogood_logistics',
+        'agrogood_bank',
     ],
     'data': [
         'security/ir.model.access.csv',
@@ -36,6 +37,7 @@ esconder un menu no impide nada a quien construya una peticion a mano.
         'views/logistica_templates.xml',
         'views/compras_templates.xml',
         'views/direccion_templates.xml',
+        'views/cobranza_templates.xml',
     ],
     'installable': True,
 }

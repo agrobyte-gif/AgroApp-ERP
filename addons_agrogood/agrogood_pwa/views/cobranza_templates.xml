@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= COBRANZA ================= -->
+    <!--
+        Tres bloques y en este orden, porque es el orden en que hay que llamar:
+
+          1. Los que YA prometieron y llego el dia. Ya hubo conversacion, y
+             volver a llamar el dia que dijeron es lo que separa una promesa de
+             una excusa. Es la lista mas corta y la que mas rinde.
+          2. Los vencidos, del que mas debe al que menos.
+          3. Los que deben pero todavia no vencen. Estan aqui para consultarlos,
+             no para llamarlos.
+
+        Ordenar por saldo total en lugar de por vencido pondria arriba al
+        cliente grande que esta al dia, que es justo a quien no hay que llamar.
+    -->
+
+    <template id="cobranza_home" name="Cobranza - a quien llamar">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Cobranza</t>
+
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(total).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">por cobrar</span>
+                </div>
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if total_vencido else ''}">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(total_vencido).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">vencido</span>
+                </div>
+            </div>
+
+            <t t-if="prometieron">
+                <h2 class="ag-h2">Dijeron que pagaban</h2>
+                <t t-foreach="prometieron" t-as="s">
+                    <a t-att-href="'/agrogood/cobranza/%s' % s.id"
+                       class="ag-card ag-card-active">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="s.display_name"/></span>
+                            <span class="ag-card-sub">
+                                Dijo el <t t-esc="s.agrogood_payment_promise_date"/>
+                                <t t-if="s.agrogood_payment_promise_note">
+                                    · <t t-esc="s.agrogood_payment_promise_note"/>
+                                </t>
+                            </span>
+                        </div>
+                        <span class="ag-chip ag-chip-warn">
+                            <t t-esc="'{:,.0f}'.format(s.agrogood_balance).replace(',', '.')"/>
+                        </span>
+                    </a>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Vencidos</h2>
+            <t t-if="not vencidos">
+                <p class="ag-muted ag-pad">Nadie debe nada vencido.</p>
+            </t>
+            <t t-foreach="vencidos" t-as="s">
+                <a t-att-href="'/agrogood/cobranza/%s' % s.id" class="ag-card">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title"><t t-esc="s.display_name"/></span>
+                        <span class="ag-card-sub">
+                            <t t-esc="s.agrogood_open_order_count"/> ordenes ·
+                            <t t-esc="s.agrogood_oldest_due_days"/> dias de atraso
+                        </span>
+                    </div>
+                    <span class="ag-chip ag-chip-warn">
+                        <t t-esc="'{:,.0f}'.format(s.agrogood_overdue_balance).replace(',', '.')"/>
+                    </span>
+                </a>
+            </t>
+
+            <t t-if="al_dia">
+                <h2 class="ag-h2">Deben, pero aun no vencen</h2>
+                <t t-foreach="al_dia" t-as="s">
+                    <a t-att-href="'/agrogood/cobranza/%s' % s.id" class="ag-card">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="s.display_name"/></span>
+                            <span class="ag-card-sub">
+                                <t t-esc="s.agrogood_open_order_count"/> ordenes ·
+                                <t t-esc="s.agrogood_credit_days"/> dias de plazo
+                            </span>
+                        </div>
+                        <span class="ag-chip ag-chip-soft">
+                            <t t-esc="'{:,.0f}'.format(s.agrogood_balance).replace(',', '.')"/>
+                        </span>
+                    </a>
+                </t>
+            </t>
+
+            <p class="ag-muted ag-pad">
+                Se debe lo entregado, no lo pedido. Imputar los abonos del banco
+                se hace en el escritorio, sentado y con la cartola delante.
+            </p>
+        </t>
+    </template>
+
+    <!--
+        La ficha de la llamada. Todo lo que hace falta decir por telefono cabe
+        arriba: cuanto debe, desde cuando, y que ordenes son. El boton de
+        llamar va antes que el detalle porque lo primero que se hace al abrir
+        esta pantalla es llamar.
+    -->
+    <template id="cobranza_cliente" name="Cobranza - el cliente">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Cobranza</t>
+
+            <a href="/agrogood/cobranza" class="ag-back">Volver</a>
+
+            <h2 class="ag-h2"><t t-esc="socio.display_name"/></h2>
+
+            <div class="ag-resumen">
+                <div class="ag-dato">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(socio.agrogood_balance).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">debe en total</span>
+                </div>
+                <div t-attf-class="ag-dato #{'ag-dato-malo' if socio.agrogood_overdue_balance else ''}">
+                    <span class="ag-dato-num">
+                        <t t-esc="'{:,.0f}'.format(socio.agrogood_overdue_balance).replace(',', '.')"/>
+                    </span>
+                    <span class="ag-dato-txt">
+                        vencido
+                        <t t-if="socio.agrogood_oldest_due_days">
+                            (<t t-esc="socio.agrogood_oldest_due_days"/> dias)
+                        </t>
+                    </span>
+                </div>
+            </div>
+
+            <div class="ag-actions">
+                <t t-if="socio.mobile or socio.phone">
+                    <a t-attf-href="tel:#{socio.mobile or socio.phone}"
+                       class="ag-btn ag-btn-primary ag-btn-xl">Llamar</a>
+                </t>
+                <t t-if="telefono">
+                    <a t-attf-href="https://wa.me/#{telefono}"
+                       class="ag-btn ag-btn-ok" target="_blank">WhatsApp</a>
+                </t>
+            </div>
+            <t t-if="not (socio.mobile or socio.phone)">
+                <p class="ag-warn">
+                    Este cliente no tiene telefono en su ficha. Se completa en
+                    el escritorio.
+                </p>
+            </t>
+
+            <t t-if="socio.agrogood_payment_promise_date">
+                <p class="ag-note-box">
+                    La ultima vez dijo que pagaba el
+                    <strong><t t-esc="socio.agrogood_payment_promise_date"/></strong>.
+                    <t t-if="socio.agrogood_payment_promise_note">
+                        <t t-esc="socio.agrogood_payment_promise_note"/>
+                    </t>
+                </p>
+            </t>
+
+            <h2 class="ag-h2">Que debe</h2>
+            <t t-if="not ordenes">
+                <p class="ag-muted ag-pad">Nada pendiente.</p>
+            </t>
+            <t t-foreach="ordenes" t-as="o">
+                <div t-attf-class="ag-card #{'ag-card-active' if o.agrogood_overdue_days else ''}">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title">
+                            <t t-if="o.agrogood_sii_folio">
+                                Factura <t t-esc="o.agrogood_sii_folio"/>
+                            </t>
+                            <t t-else=""><t t-esc="o.name"/></t>
+                        </span>
+                        <span class="ag-card-sub">
+                            Entregado el <t t-esc="o.date_order.date()"/>
+                            <t t-if="o.agrogood_collection_state == 'partial'">
+                                · pagada en parte
+                            </t>
+                            <t t-if="o.agrogood_overdue_days">
+                                · <t t-esc="o.agrogood_overdue_days"/> dias de atraso
+                            </t>
+                        </span>
+                    </div>
+                    <span t-attf-class="ag-chip #{'ag-chip-warn' if o.agrogood_overdue_days else 'ag-chip-soft'}">
+                        <t t-esc="'{:,.0f}'.format(o.agrogood_due_amount).replace(',', '.')"/>
+                    </span>
+                </div>
+            </t>
+            <t t-if="ordenes">
+                <p class="ag-muted ag-pad">
+                    Sin numero de factura significa que el documento todavia no
+                    se anoto en el sistema; el cliente si lo tiene.
+                </p>
+            </t>
+
+            <t t-if="abonos">
+                <h2 class="ag-h2">Lo ultimo que pago</h2>
+                <t t-foreach="abonos" t-as="a">
+                    <div class="ag-card">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title">
+                                <t t-esc="'{:,.0f}'.format(a.amount).replace(',', '.')"/>
+                            </span>
+                            <span class="ag-card-sub">
+                                <t t-esc="a.date"/> ·
+                                <t t-esc="dict(a._fields['bank'].selection).get(a.bank, '')"/>
+                                <t t-if="a.amount_unapplied &gt; 0"> · sin imputar</t>
+                            </span>
+                        </div>
+                    </div>
+                </t>
+            </t>
+
+            <h2 class="ag-h2">Que dijo</h2>
+            <div class="ag-note">
+                <label class="ag-h">Queda en pagar el</label>
+                <input type="date" id="ag-promesa-fecha" class="ag-select"
+                       t-att-value="socio.agrogood_payment_promise_date or ''"/>
+                <label class="ag-h">Nota</label>
+                <input type="text" id="ag-promesa-nota" class="ag-select"
+                       placeholder="Deposita el viernes, pidio el detalle..."
+                       t-att-value="socio.agrogood_payment_promise_note or ''"/>
+                <button class="ag-btn ag-btn-primary ag-btn-xl"
+                        data-action="promesa" t-att-data-id="socio.id">
+                    Anotar
+                </button>
+            </div>
+            <p class="ag-muted ag-pad">
+                Queda tambien en la conversacion del cliente, con lo que debia
+                hoy. Un cliente que promete todos los viernes se ve ahi y no en
+                la fecha, que solo guarda la ultima vez.
+            </p>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/cobranza.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/cobranza.js?v=#{v}"/>
+        </t>
+    </template>
+
+</odoo>

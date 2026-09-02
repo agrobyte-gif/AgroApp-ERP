@@ -45,10 +45,19 @@ class SaleOrder(models.Model):
         compute='_compute_agrogood_cobranza', store=True, index=True,
     )
 
+    # El plazo se copia del cliente al tomar el pedido y se queda AQUI. Si se
+    # leyera siempre de la ficha, ampliarle el plazo a un cliente moroso
+    # descontaria de golpe todas sus entregas vencidas y desapareceria de la
+    # lista de cobranza sin haber pagado nada. Vale el plazo que se pacto ese
+    # dia, no el de hoy.
+    agrogood_credit_days = fields.Integer(
+        string="Dias de plazo", compute='_compute_agrogood_credit_days',
+        store=True, readonly=False,
+    )
     agrogood_due_date = fields.Date(
         string="Vence", compute='_compute_agrogood_due_date', store=True,
-        help="La fecha del pedido mas los dias de plazo del cliente. Sin "
-             "plazo pactado, vence el mismo dia: es venta al contado.",
+        help="La fecha del pedido mas los dias de plazo pactados. Sin plazo, "
+             "vence el mismo dia: es venta al contado.",
     )
     agrogood_overdue_days = fields.Integer(
         string="Dias de atraso", compute='_compute_agrogood_overdue_days',
@@ -91,15 +100,25 @@ class SaleOrder(models.Model):
             else:
                 order.agrogood_collection_state = 'open'
 
-    @api.depends('date_order', 'partner_id.agrogood_credit_days')
+    @api.depends('partner_id')
+    def _compute_agrogood_credit_days(self):
+        """Se copia al elegir el cliente y no se vuelve a tocar solo.
+
+        Depende de `partner_id` y no de `partner_id.agrogood_credit_days`: al
+        cambiar de cliente en un pedido en borrador se trae su plazo, pero
+        cambiar el plazo en la ficha no reescribe las ordenes ya tomadas.
+        """
+        for order in self:
+            order.agrogood_credit_days = order.partner_id.agrogood_credit_days or 0
+
+    @api.depends('date_order', 'agrogood_credit_days')
     def _compute_agrogood_due_date(self):
         for order in self:
             if not order.date_order:
                 order.agrogood_due_date = False
                 continue
-            dias = order.partner_id.agrogood_credit_days or 0
             order.agrogood_due_date = fields.Date.add(
-                order.date_order.date(), days=dias)
+                order.date_order.date(), days=order.agrogood_credit_days or 0)
 
     def _compute_agrogood_overdue_days(self):
         hoy = fields.Date.context_today(self)

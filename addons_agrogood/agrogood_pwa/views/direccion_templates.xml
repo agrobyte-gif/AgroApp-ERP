@@ -50,7 +50,8 @@
                         <t t-esc="'{:,.0f}'.format(por_cobrar).replace(',', '.')"/>
                     </span>
                     <span class="ag-dato-txt">
-                        pendiente en <t t-esc="por_cobrar_n"/> facturas
+                        pendiente en <t t-esc="por_cobrar_n"/>
+                        ordenes de compra
                     </span>
                 </div>
                 <div t-attf-class="ag-dato #{'ag-dato-malo' if vencido else ''}">
