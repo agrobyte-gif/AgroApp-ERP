@@ -162,7 +162,21 @@
             </t>
 
             <h2 class="ag-h2">Que debe</h2>
-            <t t-if="not ordenes">
+            <t t-if="socio.agrogood_opening_due">
+                <div class="ag-card ag-card-active">
+                    <div class="ag-card-main">
+                        <span class="ag-card-title">Deuda anterior a Agroapp</span>
+                        <span class="ag-card-sub">
+                            Al <t t-esc="socio.agrogood_opening_date"/>, de
+                            entregas que no estan en el sistema
+                        </span>
+                    </div>
+                    <span class="ag-chip ag-chip-warn">
+                        <t t-esc="'{:,.0f}'.format(socio.agrogood_opening_due).replace(',', '.')"/>
+                    </span>
+                </div>
+            </t>
+            <t t-if="not ordenes and not socio.agrogood_opening_due">
                 <p class="ag-muted ag-pad">Nada pendiente.</p>
             </t>
             <t t-foreach="ordenes" t-as="o">

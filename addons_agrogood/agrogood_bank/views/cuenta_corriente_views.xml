@@ -135,6 +135,8 @@
                 <field name="display_name" string="Cliente"/>
                 <field name="agrogood_open_order_count"/>
                 <field name="agrogood_balance" sum="Saldo total"/>
+                <field name="agrogood_opening_due" sum="De antes de Agroapp"
+                       optional="show"/>
                 <field name="agrogood_overdue_balance" sum="Vencido"/>
                 <field name="agrogood_oldest_due_days" string="Atraso mas antiguo"/>
                 <field name="agrogood_payment_promise_date" string="Dijo que paga el"/>
@@ -151,7 +153,7 @@
         <field name="name">Saldos de clientes</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('agrogood_balance', '!=', 0)]</field>
+        <field name="domain">[('agrogood_balance', '&gt;', 0)]</field>
         <field name="context">{'create': False}</field>
         <field name="view_id" ref="partner_view_list_cobranza"/>
         <field name="help" type="html">
@@ -181,6 +183,14 @@
             <field name="vat" position="after">
                 <field name="agrogood_credit_days"
                        groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>
+                <field name="agrogood_opening_balance"
+                       groups="agrogood_base.group_agrogood_general_admin"/>
+                <field name="agrogood_opening_date"
+                       invisible="not agrogood_opening_balance"
+                       groups="agrogood_base.group_agrogood_general_admin"/>
+                <field name="agrogood_opening_due" readonly="1"
+                       invisible="not agrogood_opening_balance"
+                       groups="agrogood_base.group_agrogood_general_admin"/>
                 <field name="agrogood_payment_promise_date"
                        invisible="agrogood_balance == 0"
                        groups="agrogood_base.group_agrogood_sales,agrogood_base.group_agrogood_general_admin"/>

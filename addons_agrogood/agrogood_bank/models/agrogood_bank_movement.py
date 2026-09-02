@@ -270,6 +270,23 @@ class AgrogoodBankMovement(models.Model):
             if not m.partner_id:
                 continue
             queda = m.amount_unapplied
+
+            # El saldo de apertura primero: es deuda anterior a Agroapp, o sea
+            # la mas antigua que existe. Dejarla para el final la volveria
+            # incobrable en la practica, porque siempre habria una entrega mas
+            # reciente por delante.
+            socio = m.partner_id
+            apertura = socio.agrogood_opening_due
+            if apertura > 0 and queda > 0:
+                importe = min(queda, apertura)
+                Imputacion.create({
+                    'movement_id': m.id, 'opening_partner_id': socio.id,
+                    'amount': importe,
+                })
+                queda -= importe
+                creadas += 1
+                socio.invalidate_recordset(['agrogood_opening_due'])
+
             for orden in m._ordenes_abiertas():
                 if m.currency_id.is_zero(queda) or queda <= 0:
                     break

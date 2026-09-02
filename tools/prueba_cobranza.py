@@ -219,6 +219,85 @@ paso("Un abono sin cliente no imputa nada y lo dice",
      not huerfano.allocation_ids
      and resultado['params']['type'] == 'warning')
 
+# ------------------------------------------- 5. la deuda de antes de Agroapp
+print()
+print("EL SALDO DE APERTURA")
+
+viejo = env['res.partner'].create({
+    'name': 'CLIENTE PRUEBA APERTURA', 'is_company': True, 'customer_rank': 1,
+    'agrogood_business_line_id': linea.id, 'agrogood_credit_days': 0,
+    'agrogood_opening_balance': 100000.0,
+    'agrogood_opening_date': hoy - timedelta(days=30),
+})
+paso("Lo que ya debia cuenta en su saldo sin ninguna orden de compra",
+     viejo.agrogood_balance == 100000.0 and viejo.agrogood_open_order_count == 0,
+     "debe %s con %d ordenes en el sistema"
+     % ("{:,.0f}".format(viejo.agrogood_balance).replace(",", "."),
+        viejo.agrogood_open_order_count))
+paso("Y esta vencido por definicion: es deuda de antes del corte",
+     viejo.agrogood_overdue_balance == 100000.0
+     and viejo.agrogood_oldest_due_days == 30,
+     "%d dias de atraso" % viejo.agrogood_oldest_due_days)
+
+# Una entrega nueva, posterior al corte.
+reciente = env['sale.order'].create({
+    'partner_id': viejo.id,
+    'order_line': [(0, 0, {'product_id': producto.id, 'product_uom_qty': 10})],
+})
+reciente.action_confirm()
+entregar(reciente, [10])
+reciente.invalidate_recordset()
+viejo.invalidate_recordset()
+paso("El saldo suma lo viejo y lo nuevo",
+     abs(viejo.agrogood_balance
+         - (100000.0 + reciente.agrogood_due_amount)) < 1.0,
+     "%s de apertura mas %s de la entrega"
+     % ("{:,.0f}".format(viejo.agrogood_opening_due).replace(",", "."),
+        "{:,.0f}".format(reciente.agrogood_due_amount).replace(",", ".")))
+
+# Un abono que NO alcanza para todo: tiene que morder primero lo mas antiguo.
+# 105.000 cubre los 100.000 de apertura y deja 5.000 para la entrega, que debe
+# 11.900. Si el reparto fuera al reves, la apertura quedaria a medias y seria
+# la deuda que nunca se termina de cobrar.
+abono3 = Mov.create({
+    'bank': 'santander', 'date': hoy, 'amount': 105000.0,
+    'partner_id': viejo.id, 'unique_key': 'cobranza|apertura',
+})
+abono3.action_imputar()
+viejo.invalidate_recordset()
+reciente.invalidate_recordset()
+abono3.invalidate_recordset()
+paso("Se paga primero lo de antes de Agroapp, que es lo mas antiguo",
+     viejo.agrogood_opening_due == 0
+     and reciente.agrogood_collection_state == 'partial',
+     "apertura saldada; de la entrega quedan %s"
+     % "{:,.0f}".format(reciente.agrogood_due_amount).replace(",", "."))
+paso("Y el abono se reparte entero, sin dejar nada suelto",
+     abs(abono3.amount_unapplied) < 1.0
+     and len(abono3.allocation_ids) == 2,
+     "%d imputaciones" % len(abono3.allocation_ids))
+
+try:
+    env['agrogood.payment.allocation'].create({
+        'movement_id': abono3.id, 'opening_partner_id': viejo.id,
+        'order_id': reciente.id, 'amount': 100.0,
+    })
+    paso("Una imputacion apunta a una sola deuda", False, "se acepto a las dos")
+except ValidationError:
+    paso("Una imputacion apunta a una sola deuda", True)
+
+sobra = Mov.create({
+    'bank': 'santander', 'date': hoy, 'amount': 90000.0,
+    'partner_id': viejo.id, 'unique_key': 'cobranza|apertura2'})
+try:
+    env['agrogood.payment.allocation'].create({
+        'movement_id': sobra.id, 'opening_partner_id': viejo.id,
+        'amount': 90000.0})
+    paso("No se puede pagar el saldo de apertura de mas", False, "se acepto")
+except ValidationError:
+    paso("No se puede pagar el saldo de apertura de mas", True,
+         "ya estaba saldado")
+
 print()
 print("=" * 74)
 print("%d de %d comprobaciones" % (sum(1 for x in R if x), len(R)))

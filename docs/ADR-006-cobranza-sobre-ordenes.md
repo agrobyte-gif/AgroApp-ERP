@@ -123,3 +123,56 @@ directo a elegir entre dos. Es un toque mas cada dia. Se acepto porque cobrar y
 vender son trabajos distintos y la persona que llama al cliente es la misma que
 le vende; si en la practica Ventas no cobra, la pantalla deberia quedar solo
 para Direccion.
+
+---
+
+## Añadido (2026-09-01): el saldo de apertura
+
+La cuenta corriente solo sabe de lo que pasa por Agroapp, de modo que el dia
+del arranque diria que nadie debe nada y la cobranza habria que llevarla por
+fuera durante meses. El **saldo de apertura** es lo que cada cliente ya debia
+ese dia, de entregas anteriores al sistema.
+
+Se descartaron dos alternativas:
+
+* **Cargar el historico de entregas.** Da el detalle completo, pero son miles
+  de filas que dependen de lo limpio que este lo que hay en planilla, y si
+  entran sucias el sistema arranca con numeros que nadie cree. Para cobrar hace
+  falta saber cuanto debe, no que llevo en marzo.
+* **No cargar nada.** Cero trabajo, pero durante meses conviven dos formas de
+  saber cuanto debe un cliente, y la que esta en la pantalla es la incompleta.
+
+### Por que NO es una orden de compra
+
+La tentacion era crear una orden falsa por cliente y reutilizar toda la
+maquinaria de imputacion. Se probo mentalmente y se descarto: esa orden se
+colaria en las **ventas del dia**, en el **ticket medio**, en los **productos
+mas vendidos**, en los **paneles** y en las **alertas** -diez sitios que leen
+`sale.order` como si fuera una venta-, y cada informe nuevo tendria que
+acordarse de excluirla. Es el tipo de decision que funciona el primer mes y
+corrompe las cifras el sexto.
+
+El saldo vive como un importe del cliente, que no se cuela en ningun sitio. Lo
+unico que hubo que ampliar es la imputacion: una linea apunta a una orden **o**
+al saldo de apertura de un cliente, y una comprobacion exige que sea a una sola
+de las dos.
+
+### Como se cobra
+
+El saldo de apertura es, por definicion, **la deuda mas antigua que existe** y
+esta vencida desde la fecha de corte. Por eso un abono lo salda primero y solo
+despues reparte lo que sobre entre las ordenes. Dejarlo para el final lo
+volveria incobrable en la practica: siempre habria una entrega mas reciente por
+delante.
+
+### Como se carga
+
+`tools/exportar_saldos.py` saca la cartera a `C:/dev/Saldos por completar.xlsx`
+-una fila por cliente, una sola columna que rellenar, y viene en cero porque un
+saldo no se puede proponer: hay que mirarlo-. `tools/importar_saldos.py` la
+lee, informa por defecto y escribe con `AGROGOOD_SALDOS=escribir`.
+
+Volver a cargar la planilla **reemplaza** el saldo, no lo suma: corregir una
+cifra mal puesta es editar la celda y volver a cargar, sin tener que acordarse
+de cuantas veces se cargo antes. Y antes de escribir se listan los diez que mas
+deben con su porcentaje, porque el error tipico es un cero de mas y ahi se ve.
