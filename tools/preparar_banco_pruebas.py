@@ -163,10 +163,25 @@ else:
     rutas.unlink()
     sesiones.unlink()
 
+    # Las ordenes de compra CON RECEPCIONES HECHAS no se tocan. Odoo no deja
+    # cancelarlas, y hace bien: esa mercaderia entro de verdad y esta en el
+    # stock. Cancelar la orden dejaria existencias sin nada detras que
+    # explicara de donde salieron.
+    #
+    # La primera version de esto las cancelaba todas y reventaba con la
+    # primera que tuviera una recepcion. Habria reventado la manana del
+    # ensayo, con la gente esperando.
     compras = env['purchase.order'].search([])
-    compras.filtered(lambda o: o.state not in ('cancel',)).button_cancel()
-    compras.unlink()
-    env['agrogood.purchase.request'].search([]).unlink()
+    con_recepcion = compras.filtered(
+        lambda o: any(p.state == 'done' for p in o.picking_ids))
+    if con_recepcion:
+        print("  se conservan %d ordenes de compra con recepciones hechas: %s"
+              % (len(con_recepcion), ", ".join(con_recepcion.mapped('name'))))
+    borrables = compras - con_recepcion
+    borrables.filtered(lambda o: o.state not in ('cancel',)).button_cancel()
+    borrables.unlink()
+    env['agrogood.purchase.request'].search(
+        [('purchase_order_id', 'not in', con_recepcion.ids)]).unlink()
 
     todos_alb = env['stock.picking'].search([('state', '!=', 'done')])
     todos_alb.action_cancel()

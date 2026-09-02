@@ -236,21 +236,48 @@ print("3. CADA UNO VE SOLO LO SUYO")
 Sesion = env['agrogood.picking.session']
 Ruta = env['agrogood.route']
 
+# La pregunta correcta no es "ve menos de las que hay" -si la unica que existe
+# es la suya, verla es lo correcto- sino "NO ve la de otro". Por eso se monta
+# una preparacion de otra persona y se comprueba que no aparece.
 picker = como("felipe.collio@agrogood.cl")
-if picker:
-    todas = Sesion.sudo().search_count([])
-    suyas = picker['agrogood.picking.session'].search_count([])
-    paso("Un Picker solo ve sus preparaciones",
-         suyas == 0 or suyas < todas or todas == 0,
-         "ve %d de %d" % (suyas, todas))
+otro_picker = Usuario.search([('login', '=', 'orianna.pumar@agrogood.cl')], limit=1)
+otro_albaran = env['stock.picking'].sudo().search([
+    ('picking_type_id.code', '=', 'outgoing'),
+    ('state', 'not in', ('done', 'cancel')),
+    ('agrogood_session_id', '=', False),
+], limit=1)
+if picker and otro_picker and otro_albaran:
+    ajena = Sesion.sudo().create({'picking_id': otro_albaran.id,
+                                  'picker_id': otro_picker.id})
+    visibles = picker['agrogood.picking.session'].search([]).ids
+    paso("Un Picker no ve la preparacion de otro",
+         ajena.id not in visibles,
+         "ve %d preparaciones, de %d que hay"
+         % (len(visibles), Sesion.sudo().search_count([])))
+else:
+    paso("Un Picker no ve la preparacion de otro", None,
+         "no habia albaran libre para montar la de otra persona")
 
 conductor = como("thomas.schuster@agrogood.cl")
-if conductor:
-    todas = Ruta.sudo().search_count([])
-    suyas = conductor['agrogood.route'].search_count([])
-    paso("Un conductor solo ve sus rutas",
-         suyas == 0 or suyas < todas or todas == 0,
-         "ve %d de %d" % (suyas, todas))
+otro_conductor = Usuario.search(
+    [('login', '=', 'luis.yanez@agrogood.cl')], limit=1)
+modelo_v = env['fleet.vehicle.model'].sudo().search([], limit=1)
+if conductor and otro_conductor and modelo_v:
+    coche = env['fleet.vehicle'].sudo().create({
+        'model_id': modelo_v.id, 'license_plate': 'AUD-01',
+        'agrogood_capacity_kg': 600.0})
+    from odoo import fields as _f
+    ruta_ajena = Ruta.sudo().create({
+        'driver_id': otro_conductor.id, 'vehicle_id': coche.id,
+        'date': _f.Date.context_today(env.user)})
+    visibles = conductor['agrogood.route'].search([]).ids
+    paso("Un conductor no ve la ruta de otro",
+         ruta_ajena.id not in visibles,
+         "ve %d rutas, de %d que hay"
+         % (len(visibles), Ruta.sudo().search_count([])))
+else:
+    paso("Un conductor no ve la ruta de otro", None,
+         "faltaba con que montar la ruta de otra persona")
 
 # ==========================================================================
 # 4. Las cifras de los paneles
