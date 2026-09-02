@@ -41,7 +41,25 @@ echo "[$(date '+%F %T')] Respaldo terminado. Copias guardadas: $(ls -1 "$DESTINO
 # 4. FUERA DEL SERVIDOR.
 #    Un respaldo que vive en la misma maquina que los datos no es un respaldo:
 #    es una copia. Si el disco falla o el proveedor pierde la maquina, se
-#    pierden los dos a la vez. Descomentar una de estas lineas.
+#    pierden los dos a la vez.
 #
-# rclone copy "$DESTINO" remoto:agroapp-respaldos --max-age 25h
-# aws s3 sync "$DESTINO" s3://agroapp-respaldos/ --exclude "*" --include "*$FECHA*"
+#    Se sube a Firebase Storage. La herramienta vuelve a leer el archivo del
+#    bucket y compara tamano y hash, en vez de dar por hecho que llego: subir y
+#    confiar es la forma habitual de descubrir el dia malo que el respaldo
+#    estaba a medias. Comprueba ademas que no se pueda descargar sin
+#    credenciales, porque el dump lleva los RUT, telefonos y deudas de toda la
+#    cartera.
+#
+#    Hace falta config/firebase-clave.json. Ver docs/RESPALDO-FIREBASE.md.
+#    Si falla, el respaldo local ya esta hecho: se avisa y se sigue.
+
+CLAVE_FIREBASE="${AGROGOOD_FIREBASE_CLAVE:-../config/firebase-clave.json}"
+if [ -f "$CLAVE_FIREBASE" ]; then
+    AGROGOOD_FIREBASE=subir \
+    AGROGOOD_RESPALDOS="$DESTINO" \
+    AGROGOOD_FIREBASE_CLAVE="$CLAVE_FIREBASE" \
+    python3 ../tools/subir_respaldo.py || \
+        echo "  AVISO: no subio a Firebase. La copia del servidor si esta."
+else
+    echo "  Firebase: sin configurar (falta $CLAVE_FIREBASE)"
+fi

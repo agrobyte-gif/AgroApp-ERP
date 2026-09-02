@@ -52,6 +52,7 @@ que actualizar Odoo no destruya el trabajo.
 git clone --depth 1 --branch 18.0 https://github.com/odoo/odoo.git odoo-18.0
 python -m venv .venv && .venv/Scripts/activate
 pip install -r odoo-18.0/requirements.txt
+pip install -r requirements-agrogood.txt
 cp config/odoo.conf.example config/odoo.conf   # y rellenar las claves
 powershell -ExecutionPolicy Bypass -File config/configurar_base_datos.ps1
 .venv/Scripts/python odoo-18.0/odoo-bin -c config/odoo.conf -d agrogood_dev
@@ -60,6 +61,12 @@ powershell -ExecutionPolicy Bypass -File config/configurar_base_datos.ps1
 ## Producción
 
 Ver [`despliegue/README.md`](despliegue/README.md).
+
+## Respaldos
+
+Copia diaria de base y adjuntos, con copia fuera del equipo en Firebase Storage:
+ver [`docs/RESPALDO-FIREBASE.md`](docs/RESPALDO-FIREBASE.md).
+El simulacro de restauración (`config/simulacro_restauracion.ps1`) comprueba que el respaldo sirve de verdad, y conviene correrlo una vez al mes.
 
 ---
 

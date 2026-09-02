@@ -1,0 +1,7 @@
+# Lo que Agroapp necesita ademas de odoo-18.0/requirements.txt.
+#
+#   .venv/Scripts/python.exe -m pip install -r requirements-agrogood.txt
+
+# Sube los respaldos a Firebase Storage y comprueba que llegaron enteros.
+# Ver docs/RESPALDO-FIREBASE.md.
+firebase-admin==7.5.0

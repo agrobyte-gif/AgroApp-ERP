@@ -10,6 +10,9 @@ __pycache__/
 
 # Configuracion con credenciales reales. Se versiona odoo.conf.example.
 config/odoo.conf
+# Clave de la cuenta de servicio de Firebase. Es una credencial: quien
+# la tenga puede leer y borrar todos los respaldos.
+config/firebase-clave.json
 # La copia de seguridad que genera configurar_base_datos.ps1 contiene las
 # mismas credenciales que odoo.conf.
 config/odoo.conf.bak

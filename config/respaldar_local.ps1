@@ -76,3 +76,22 @@ if (Test-Path "$env:USERPROFILE\OneDrive") {
 } else {
     Write-Host "  AVISO: sin OneDrive. El respaldo vive en el mismo disco que los datos."
 }
+
+# --- 5. Copia en Firebase ----------------------------------------------
+# OneDrive cuelga de la cuenta personal de quien tiene el equipo: si esa
+# persona se va, cambia de cuenta o llena su espacio, los respaldos se van con
+# ella y nadie se entera. El bucket de Firebase es del proyecto.
+#
+# Si esto falla NO se cae el respaldo local, que ya esta hecho y es lo que
+# importa. Pero se dice fuerte: un respaldo remoto que lleva semanas sin subir
+# es la forma silenciosa de no tener respaldo remoto.
+if (Test-Path "$RAIZ\config\firebase-clave.json") {
+    $env:AGROGOOD_FIREBASE = "subir"
+    & "$RAIZ\.venv\Scripts\python.exe" "$RAIZ\tools\subir_respaldo.py"
+    $env:AGROGOOD_FIREBASE = $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  AVISO: el respaldo NO subio a Firebase. La copia local si esta."
+    }
+} else {
+    Write-Host "  Firebase: sin configurar (falta config\firebase-clave.json)"
+}
