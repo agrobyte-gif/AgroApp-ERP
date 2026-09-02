@@ -32,21 +32,40 @@ Un atasco no es un fracaso del ensayo. Es exactamente lo que se vino a buscar.
 
 ## Antes del día
 
-### 1. Faltan dos cuentas reales
+### 1. Las cuentas, y sus claves
 
-Hoy existen `Picker Demo` y `Conductor Demo`. Sirvieron para que yo probara;
-**no sirven para el ensayo**, porque parte de lo que se prueba es que cada
-persona entre con lo suyo y vea solo lo suyo.
+El equipo completo ya está creado. Falta **ponerle la clave a cada uno**, una
+por una, desde `Ajustes > Usuarios > (el usuario) > Acción > Cambiar
+contraseña`. Las pone una persona y no un script: una clave escrita en un
+archivo del repositorio deja de ser una clave.
 
-Hace falta decidir y crear:
-
-| Rol | Quién lo hace de verdad | Cuenta |
+| Quién | Correo | Hace |
 |---|---|---|
-| Preparación | ¿Matías? ¿otra persona? | falta |
-| Reparto | ¿quién conduce? | falta |
+| Felipe Collio | `felipe.collio@agrogood.cl` | prepara |
+| Orianna Pumar | `orianna.pumar@agrogood.cl` | prepara |
+| Fernando Figueroa | `fernando.figueroa@agrogood.cl` | prepara |
+| Thomas Schuster | `thomas.schuster@agrogood.cl` | prepara y reparte |
+| Earvin Juárez | `earvin.juarez@agrogood.cl` | prepara y reparte |
+| Luis Yáñez | `luis.yanez@agrogood.cl` | prepara y reparte |
+| Felipe Fuentes | `felipe.fuentes@agrogood.cl` | prepara y reparte |
 
-Ventas tiene a Sebastián y a Yere; de Yere sigue faltando el apellido para su
-ficha. Felipe cubre Logística, Bodega y Preparación. Johan, Compras.
+Los cuatro que preparan **y** reparten entran a una pantalla que les pregunta
+cuál de los dos trabajos van a hacer. Conviene avisárselo: es el único punto
+del día donde alguien puede quedarse mirando sin saber qué tocar.
+
+Y el resto: Sebastián Lara y Yerendi Zambrano en Ventas, Johan Molina en
+Compras, Felipe Labraña en Logística y Bodega, Matías Lobasso en Bodega.
+
+> Hay **dos Felipes** en el equipo, y un tercero —Felipe Labraña— en Logística.
+> Por eso los correos nuevos llevan nombre y apellido. Vale la pena decirlo en
+> voz alta el día del ensayo.
+
+### 1b. Las cuentas de demostración
+
+`Picker Demo` y `Conductor Demo` fueron mías para probar. **No participan en el
+ensayo**: parte de lo que se comprueba es que cada uno entre con lo suyo. Y
+tienen permisos de más —pueden administrar empleados, proyectos y vacaciones—,
+así que conviene limpiarlas antes (ver más abajo).
 
 ### 2. Los teléfonos
 
@@ -81,7 +100,22 @@ Para hacer el recorrido entero desde cero —incluida la parte de compras—, us
 genera faltante, el faltante llega a Compras, Compras compra, Bodega recibe y
 solo entonces hay algo que preparar.
 
-### 4. Quién observa
+### 4. Limpiar los permisos de más
+
+Ocho cuentas pueden hoy administrar empleados, vacaciones, asistencias y
+proyectos. No se lo dio nadie: Odoo suma a la plantilla de usuario nuevo un
+grupo de cada aplicación que se instala, y esa plantilla se copia en cada alta.
+
+Uno de los criterios del ensayo es que **nadie vea lo que no le toca**, así que
+conviene quitarlo antes:
+
+```bash
+AGROGOOD_PERMISOS=limpiar .venv/Scripts/python.exe odoo-18.0/odoo-bin shell -c config/odoo.conf -d agrogood_dev --no-http < tools/limpiar_permisos_sobrantes.py
+```
+
+Sin la variable solo informa: conviene mirarlo antes de aplicarlo.
+
+### 5. Quién observa
 
 Una persona que **no participa**: solo mira y anota. Si el que observa también
 opera, deja de mirar en cuanto tiene algo que hacer, y lo que se pierde son

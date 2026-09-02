@@ -60,6 +60,43 @@ RETIRAR_SALVO = [
         "hr_expense.group_hr_expense_team_approver",
     ], ["victor@agrogood.cl"],
      "Nadie ha registrado un gasto todavia. Se deja un aprobador."),
+
+    # Al crear las cuentas del equipo de bodega aparecio que el conductor de
+    # demostracion podia administrar empleados, proyectos y vacaciones. No se
+    # lo dio nadie: Odoo suma a la plantilla de usuario nuevo un grupo de cada
+    # aplicacion que se instala, y esa plantilla se copia en cada alta.
+    #
+    # Se retiran a todos menos a Victor. Nadie en Agrogood administra proyectos
+    # desde Odoo, y "administrar empleados" incluye ver y cambiar los datos
+    # personales de los companeros.
+    ("Empleados", [
+        "hr.group_hr_manager",
+        "hr.group_hr_user",
+    ], ["victor@agrogood.cl"],
+     "Incluye ver y cambiar los datos personales de los companeros."),
+
+    ("Vacaciones", [
+        "hr_holidays.group_hr_holidays_manager",
+        "hr_holidays.group_hr_holidays_user",
+    ], ["victor@agrogood.cl"],
+     "Aprobar las vacaciones de todos no es trabajo de un Picker."),
+
+    ("Asistencias", [
+        "hr_attendance.group_hr_attendance_manager",
+        "hr_attendance.group_hr_attendance_officer",
+    ], ["victor@agrogood.cl"],
+     "Cada uno conserva la lectura de la suya, que va en otro grupo."),
+
+    ("Proyectos", [
+        "project.group_project_manager",
+        "project.group_project_user",
+    ], ["victor@agrogood.cl"],
+     "Agrogood no lleva proyectos en Odoo."),
+
+    ("Respuestas predefinidas", [
+        "mail.group_mail_template_editor",
+    ], ["victor@agrogood.cl"],
+     "Editar plantillas de correo cambia lo que se le manda a los clientes."),
 ]
 
 Usuarios = env["res.users"]
