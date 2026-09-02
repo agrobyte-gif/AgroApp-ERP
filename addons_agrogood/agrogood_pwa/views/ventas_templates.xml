@@ -21,15 +21,58 @@
     <template id="elegir" name="Elegir pantalla">
         <t t-call="agrogood_pwa.layout">
             <t t-set="titulo">Agroapp</t>
-            <h2 class="ag-h2">Que vas a hacer</h2>
-            <t t-foreach="accesos" t-as="a">
-                <a t-att-href="a['url']" class="ag-card">
-                    <div class="ag-card-main">
-                        <span class="ag-card-title"><t t-esc="a['nombre']"/></span>
-                        <span class="ag-card-sub"><t t-esc="a['sub']"/></span>
-                    </div>
-                    <span class="ag-chip">Entrar</span>
-                </a>
+
+            <!--
+                Cada tarjeta dice CUANTO trabajo espera en esa pantalla. Antes
+                las ocho decian "Entrar", la misma palabra ocho veces: para
+                saber si habia algo que hacer habia que entrar y volver.
+
+                Lo que tiene pendiente sube arriba y se marca. El resto queda
+                debajo, accesible pero sin competir: quien abre la aplicacion
+                trae una pregunta, y la lista tiene que responderla antes de
+                que toque nada.
+            -->
+            <t t-set="con_trabajo" t-value="[a for a in accesos if a['cuantos']]"/>
+            <t t-set="sin_trabajo" t-value="[a for a in accesos if not a['cuantos']]"/>
+
+            <t t-if="con_trabajo">
+                <h2 class="ag-h2">Te espera</h2>
+                <t t-foreach="con_trabajo" t-as="a">
+                    <a t-att-href="a['url']" class="ag-card ag-card-tap ag-card-hay"
+                       t-attf-style="--ag-i: #{a_index}">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="a['nombre']"/></span>
+                            <span class="ag-card-sub"><t t-esc="a['sub']"/></span>
+                        </div>
+                        <span class="ag-cuenta">
+                            <strong><t t-esc="a['cuantos']"/></strong>
+                            <small><t t-esc="a['pendiente']"/></small>
+                        </span>
+                    </a>
+                </t>
+            </t>
+
+            <t t-if="sin_trabajo">
+                <h2 class="ag-h2">
+                    <t t-if="con_trabajo">Lo demas</t>
+                    <t t-else="">Que vas a hacer</t>
+                </h2>
+                <t t-foreach="sin_trabajo" t-as="a">
+                    <a t-att-href="a['url']" class="ag-card ag-card-tap"
+                       t-attf-style="--ag-i: #{len(con_trabajo) + a_index}">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="a['nombre']"/></span>
+                            <span class="ag-card-sub"><t t-esc="a['sub']"/></span>
+                        </div>
+                        <span class="ag-flecha">&#8250;</span>
+                    </a>
+                </t>
+            </t>
+
+            <t t-if="not con_trabajo">
+                <p class="ag-muted ag-pad">
+                    Nada pendiente en ninguna de tus pantallas ahora mismo.
+                </p>
             </t>
         </t>
     </template>

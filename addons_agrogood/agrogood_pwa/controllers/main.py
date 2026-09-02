@@ -107,7 +107,82 @@ class AgrogoodPwa(http.Controller):
                 'sub': "Tu ruta y tus entregas",
                 'url': '/agrogood/driver',
             })
+        for a in accesos:
+            a.update(self._pendiente(a['clave']))
+        # Lo que tiene trabajo esperando va primero. Quien abre la aplicacion
+        # trae una pregunta -"tengo algo que hacer"- y el orden de la lista es
+        # la primera parte de la respuesta.
+        accesos.sort(key=lambda a: (0 if a['cuantos'] else 1, a['orden']))
         return accesos
+
+    # Cada pantalla, en el mismo orden en que transcurre el dia. Sirve para
+    # desempatar cuando dos roles tienen lo mismo pendiente, de modo que la
+    # lista no baile de una carga a otra.
+    ORDEN = {'direccion': 0, 'ventas': 1, 'cobranza': 2, 'compras': 3,
+             'logistica': 4, 'bodega': 5, 'picker': 6, 'driver': 7}
+
+    def _pendiente(self, clave):
+        """Cuanto trabajo espera a esta persona en esa pantalla.
+
+        Es lo que convierte el menu en una respuesta en vez de una lista de
+        enlaces. Antes las ocho tarjetas decian "Entrar", la misma palabra ocho
+        veces: para saber si tenia trabajo habia que entrar y volver.
+
+        Se cuenta con `sudo` porque el permiso ya se comprobo arriba -esta
+        tarjeta solo existe si la persona tiene ese rol- y porque las reglas de
+        registro de algunos modelos devolverian cero por motivos que no tienen
+        que ver con la pregunta.
+        """
+        env = request.env
+        usuario = env.user
+        hoy = fields.Date.context_today(usuario)
+        n, texto = 0, ""
+        try:
+            if clave == 'picker':
+                n = env['agrogood.picking.session'].sudo().search_count([
+                    ('picker_id', '=', usuario.id),
+                    ('state', 'in', ('assigned', 'in_progress'))])
+                texto = "por preparar"
+            elif clave == 'driver':
+                n = env['agrogood.route.stop'].sudo().search_count([
+                    ('route_id.driver_id', '=', usuario.id),
+                    ('route_id.date', '=', hoy),
+                    ('state', 'in', ('pending', 'on_the_way', 'arrived'))])
+                texto = "entregas hoy"
+            elif clave == 'logistica':
+                n = env['stock.picking'].sudo().search_count([
+                    ('picking_type_id.code', '=', 'outgoing'),
+                    ('state', 'not in', ('done', 'cancel')),
+                    ('agrogood_session_id', '=', False)])
+                texto = "sin asignar"
+            elif clave == 'bodega':
+                n = env['stock.picking'].sudo().search_count([
+                    ('picking_type_id.code', '=', 'incoming'),
+                    ('state', 'not in', ('done', 'cancel'))])
+                texto = "por recibir"
+            elif clave == 'compras':
+                n = env['agrogood.purchase.request'].sudo().search_count([
+                    ('state', 'in', ('pending', 'searching', 'quoting',
+                                     'partial'))])
+                texto = "por conseguir"
+            elif clave == 'ventas':
+                n = env['agrogood.followup'].sudo().search_count(
+                    [('state', '=', 'pending')])
+                texto = "por llamar"
+            elif clave == 'cobranza':
+                n = env['res.partner'].sudo().search_count(
+                    [('agrogood_overdue_balance', '>', 0)])
+                texto = "deben vencido"
+            elif clave == 'direccion':
+                n = env['agrogood.route'].sudo().search_count(
+                    [('state', '=', 'in_progress')])
+                texto = "en la calle"
+        except Exception:
+            # Un conteo que falla no puede dejar a nadie sin poder entrar a
+            # trabajar. La tarjeta se dibuja sin numero y ya esta.
+            n, texto = 0, ""
+        return {'cuantos': n, 'pendiente': texto,
+                'orden': self.ORDEN.get(clave, 9)}
 
     def _mi_cliente(self, partner_id):
         """Cliente valido para vender: con linea comercial y sin hijos sueltos."""

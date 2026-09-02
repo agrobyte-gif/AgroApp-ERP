@@ -47,6 +47,23 @@
   --ag-radio: 10px;
   /* 48px es el minimo tactil comodo; los botones principales van a 60. */
   --ag-tap: 48px;
+
+  /* Movimiento.
+
+     Las curvas de serie de CSS son flojas: `ease-out` a secas no tiene el
+     tiron que hace que una animacion parezca intencionada. Estas dos son mas
+     fuertes y se usan en toda la aplicacion.
+
+     Nunca `ease-in` en interfaz. Empieza lento, y lo lento esta justo en el
+     instante en que la persona mas esta mirando: hace que la pantalla parezca
+     que no responde aunque tarde lo mismo.
+
+     Los tiempos son cortos a proposito. Esta aplicacion se usa de pie y con
+     prisa; nada de lo que pasa aqui merece mas de un cuarto de segundo. */
+  --ag-salida: cubic-bezier(.23, 1, .32, 1);
+  --ag-entrada-salida: cubic-bezier(.77, 0, .175, 1);
+  --ag-toque: 140ms;
+  --ag-aparece: 220ms;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -91,6 +108,14 @@ body {
   margin-bottom: 10px; text-decoration: none; color: inherit;
   min-height: var(--ag-tap);
 }
+/* Una tarjeta que lleva a otra pantalla se hunde al pulsarla, igual que un
+   boton. Sin esto, con un guante y el telefono al sol, no se sabe si el toque
+   entro: la persona vuelve a pulsar y acaba entrando dos veces. */
+.ag-card-tap {
+  transition: transform var(--ag-toque) var(--ag-salida),
+              border-color var(--ag-toque) ease;
+}
+.ag-card-tap:active { transform: scale(.985); }
 .ag-card-active { border-color: var(--ag-ambar); border-width: 2px;
                   background: var(--ag-ambar-claro); }
 .ag-card-done { opacity: .62; }
@@ -102,6 +127,41 @@ body {
   width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%;
   background: var(--ag-800); color: #fff;
   display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+
+/* ---------- el menu de pantallas ---------- */
+/* La cuenta ocupa el sitio donde antes habia un chip que decia "Entrar" en las
+   ocho tarjetas. Un adorno que no cambia nunca no informa de nada, y encima se
+   quedaba con la posicion mas visible de la fila. */
+.ag-cuenta {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 0 0 auto; min-width: 76px; padding: 4px 8px;
+  border-radius: var(--ag-radio);
+  background: var(--ag-verde-claro); color: var(--ag-accion-fuerte);
+}
+.ag-cuenta strong { font-size: 22px; font-weight: 700; line-height: 1.1; }
+/* 12px y no 11: esta pantalla se lee de pie, con guantes y a veces al sol.
+   Un punto menos aqui no gana nada y se pierde justo cuando hace falta. */
+.ag-cuenta small { font-size: 12px; font-weight: 600; text-align: center;
+                   line-height: 1.2; }
+.ag-card-hay { border-color: var(--ag-300); }
+
+/* La flecha dice "esto lleva a otro sitio" sin gritarlo. Gris, pequena, y
+   fuera del recorrido de lectura. */
+.ag-flecha { flex: 0 0 auto; color: var(--ag-tinta-3); font-size: 26px;
+             line-height: 1; padding-right: 4px; }
+
+/* Entrada escalonada: las tarjetas aparecen una detras de otra en vez de todas
+   de golpe, lo que ademas guia el ojo hacia abajo en el orden correcto. El
+   retardo se corta en la sexta para que la ultima no se haga esperar. */
+@media (prefers-reduced-motion: no-preference) {
+  .ag-card-tap {
+    animation: ag-entra var(--ag-aparece) var(--ag-salida) backwards;
+    animation-delay: calc(min(var(--ag-i, 0), 5) * 40ms);
+  }
+}
+@keyframes ag-entra {
+  from { opacity: 0; transform: translateY(6px); }
 }
 
 .ag-chip { font-size: 13px; font-weight: 600; padding: 5px 10px;
@@ -142,7 +202,11 @@ body {
   font: inherit; font-weight: 600; cursor: pointer;
   margin-bottom: 10px; text-decoration: none;
 }
-.ag-btn:active { transform: scale(.985); }
+/* La escala ya estaba; lo que faltaba era la transicion. Sin ella el boton
+   salta al pulsarlo y al soltarlo, que se lee como un parpadeo y no como una
+   respuesta. Y .99 era demasiado poco para notarlo en un telefono al sol. */
+.ag-btn { transition: transform var(--ag-toque) var(--ag-salida); }
+.ag-btn:active { transform: scale(.97); }
 .ag-btn-xl { min-height: 60px; font-size: 19px; }
 .ag-btn-primary { background: var(--ag-accion); border-color: var(--ag-accion); color: #fff; }
 .ag-btn-ok { background: var(--ag-verde-claro); border-color: var(--ag-verde);
@@ -222,9 +286,22 @@ body {
 .ag-toast.ag-show { opacity: 1; transform: translateY(0); }
 .ag-toast.ag-error { background: var(--ag-rojo); }
 
+/* En un telefono, el "hover" se dispara al tocar y se queda pegado despues de
+   soltar. Se limita a los dispositivos con raton de verdad. */
+@media (hover: hover) and (pointer: fine) {
+  .ag-card-tap:hover { border-color: var(--ag-300); }
+  .ag-btn:hover { filter: brightness(.97); }
+}
+
+/* Menos movimiento no es cero movimiento. Se quita lo que se desplaza -que es
+   lo que marea- y se conservan opacidad y color, que ayudan a entender que
+   algo cambio. Apagarlo todo deja una interfaz en la que los avisos aparecen
+   de golpe y cuesta mas ver que aparecieron. */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
-  .ag-btn:active { transform: none; }
+  .ag-card-tap:active, .ag-btn:active { transform: none; }
+  .ag-card-tap { animation: none; }
+  .ag-toast { transition: opacity .18s ease; transform: none; }
+  .ag-toast.ag-show { transform: none; }
 }
 
 /* =====================================================================
