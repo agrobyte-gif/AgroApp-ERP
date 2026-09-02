@@ -62,6 +62,12 @@ powershell -ExecutionPolicy Bypass -File config/configurar_base_datos.ps1
 
 Ver [`despliegue/README.md`](despliegue/README.md).
 
+## Puesta en marcha
+
+El ensayo de un dia con el equipo real esta en [`docs/ENSAYO.md`](docs/ENSAYO.md),
+y la hoja de cada rol -para imprimir y pegar donde se trabaja- en
+[`docs/MANUAL-POR-ROL.md`](docs/MANUAL-POR-ROL.md).
+
 ## Respaldos
 
 Copia diaria de base y adjuntos, con copia fuera del equipo en Firebase Storage:
