@@ -252,6 +252,54 @@ class SaleOrder(models.Model):
         self.write({'agrogood_closed': False})
         return True
 
+    # ------------------------------------------------------------------
+    # Hasta cuando se puede tocar un pedido
+    # ------------------------------------------------------------------
+
+    # Las etapas en las que todavia no hay nadie trabajando sobre la
+    # mercaderia. El corte esta en `picking` a proposito: desde que un Picker
+    # abre la preparacion, cambiar las lineas por debajo le hace preparar lo
+    # que ya no se pide y no preparar lo que si. La mercaderia ya movida no se
+    # deshace desde un telefono.
+    ESTADOS_EDITABLES = ('draft', 'awaiting_stock', 'to_pick')
+
+    agrogood_editable = fields.Boolean(
+        string="Se puede modificar", compute='_compute_agrogood_editable',
+        help="Un pedido se modifica mientras nadie lo este preparando.",
+    )
+
+    @api.depends('agrogood_state')
+    def _compute_agrogood_editable(self):
+        for order in self:
+            order.agrogood_editable = order.agrogood_state in self.ESTADOS_EDITABLES
+
+    def _agrogood_check_editable(self):
+        """Revienta con un mensaje util si ya es tarde para cambiar el pedido.
+
+        El mensaje dice EN QUE ETAPA esta y a quien hay que hablarle, porque
+        quien lo lee esta al telefono con el cliente esperando una respuesta.
+        Un "no se puede" a secas obliga a llamar a otra persona para averiguar
+        por que.
+        """
+        etapas = dict(ESTADO_OPERATIVO)
+        for order in self:
+            if order.agrogood_editable:
+                continue
+            if order.agrogood_state in ('cancelled', 'closed'):
+                raise UserError(_(
+                    "%(pedido)s ya esta %(etapa)s.",
+                    pedido=order.name,
+                    etapa=etapas.get(order.agrogood_state, '').lower()))
+            raise UserError(_(
+                "%(pedido)s ya no se puede cambiar: esta en '%(etapa)s'.%(salto)s"
+                "%(salto)sSi hay que modificarlo igual, habla con Logistica: "
+                "la mercaderia ya se esta moviendo y el cambio afecta a lo que "
+                "alguien tiene en las manos.",
+                pedido=order.name,
+                etapa=etapas.get(order.agrogood_state, order.agrogood_state),
+                salto=chr(10)))
+        return True
+
     @api.onchange('partner_id')
     def _onchange_partner_agrogood_warning(self):
         """Avisa a Ventas de que a este cliente aun no se le puede facturar.

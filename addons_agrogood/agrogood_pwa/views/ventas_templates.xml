@@ -43,6 +43,9 @@
             <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
                 Tomar una orden de compra
             </a>
+            <a href="/agrogood/ventas/cliente" class="ag-btn ag-btn-ghost">
+                Dar de alta un cliente nuevo
+            </a>
 
             <div class="ag-resumen">
                 <div class="ag-dato">
@@ -82,7 +85,8 @@
                 <p class="ag-muted ag-pad">Todavia no ha entrado ninguna.</p>
             </t>
             <t t-foreach="pedidos" t-as="p">
-                <div class="ag-card">
+                <a t-att-href="'/agrogood/ventas/pedido/%s' % p.id"
+                   t-attf-class="ag-card #{'ag-card-active' if p.agrogood_editable else ''}">
                     <div class="ag-card-main">
                         <span class="ag-card-title"><t t-esc="p.partner_id.name"/></span>
                         <span class="ag-card-sub">
@@ -93,7 +97,7 @@
                     <span class="ag-chip ag-chip-soft">
                         <t t-esc="'{:,.0f}'.format(p.amount_untaxed).replace(',', '.')"/>
                     </span>
-                </div>
+                </a>
             </t>
         </t>
     </template>
@@ -156,6 +160,189 @@
             <t t-set="v" t-value="env['agrogood.estaticos'].version(
                 'agrogood_pwa/static/src/js/ventas.js')"/>
             <script t-attf-src="/agrogood_pwa/static/src/js/ventas.js?v=#{v}"/>
+        </t>
+    </template>
+
+    <!-- ============ VENTAS: CAMBIAR UNA ORDEN YA TOMADA ============ -->
+    <!--
+        El cliente llama a media manana para agregar dos kilos. Hasta ahora eso
+        obligaba a sentarse en el escritorio, y en este rubro pasa todos los
+        dias.
+
+        Se puede cambiar mientras nadie este preparando el pedido. Desde que un
+        Picker lo abre, la pantalla lo dice y no deja: cambiar las lineas por
+        debajo le hace preparar lo que ya no se pide.
+
+        Poner una cantidad en cero borra la linea. En un telefono es el gesto
+        natural y ahorra un boton de borrar por linea, que ademas seria el
+        boton mas facil de tocar sin querer.
+    -->
+
+    <template id="ventas_pedido" name="Ventas - cambiar una orden">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Orden de compra</t>
+            <t t-set="volver">/agrogood/ventas</t>
+
+            <h2 class="ag-h2"><t t-esc="pedido.partner_id.name"/></h2>
+            <p class="ag-muted ag-pad">
+                <t t-esc="pedido.name"/> · <t t-esc="etapa"/>
+                <t t-if="pedido.agrogood_delivery_slot">
+                    · <t t-esc="dict(pedido._fields['agrogood_delivery_slot'].selection).get(pedido.agrogood_delivery_slot, '')"/>
+                </t>
+            </p>
+
+            <t t-if="not pedido.agrogood_editable">
+                <p class="ag-warn">
+                    Esta orden ya no se puede cambiar desde aqui: esta en
+                    <strong><t t-esc="etapa"/></strong>. La mercaderia ya se
+                    esta moviendo, asi que el cambio afecta a lo que alguien
+                    tiene en las manos. Habla con Logistica.
+                </p>
+            </t>
+
+            <h2 class="ag-h2">Lo que lleva</h2>
+            <div id="lineas"
+                 t-att-data-pedido="pedido.id"
+                 t-att-data-editable="'1' if pedido.agrogood_editable else '0'">
+                <t t-foreach="pedido.order_line" t-as="l">
+                    <!-- Las lineas en cero no se pintan: son las que alguien
+                         quito de un pedido ya confirmado, donde Odoo no deja
+                         borrarlas. Existen en el registro, pero en la pantalla
+                         de Ventas serian ruido. -->
+                    <t t-if="not l.display_type and l.product_uom_qty &gt; 0">
+                        <div class="ag-line" t-att-data-producto="l.product_id.id">
+                            <div class="ag-line-head">
+                                <span class="ag-line-name">
+                                    <t t-esc="l.product_id.display_name"/>
+                                </span>
+                                <span class="ag-uom"><t t-esc="l.product_uom.name"/></span>
+                            </div>
+                            <div class="ag-qty-row">
+                                <button type="button" class="ag-btn-qty" data-paso="-1"
+                                        t-att-disabled="'disabled' if not pedido.agrogood_editable else None">−</button>
+                                <input type="number" class="ag-qty" step="0.1" min="0"
+                                       t-att-value="'{:g}'.format(l.product_uom_qty)"
+                                       t-att-readonly="'readonly' if not pedido.agrogood_editable else None"/>
+                                <button type="button" class="ag-btn-qty" data-paso="1"
+                                        t-att-disabled="'disabled' if not pedido.agrogood_editable else None">+</button>
+                            </div>
+                            <t t-if="l.agrogood_shortage_qty &gt; 0">
+                                <span class="ag-line-status">
+                                    faltan <t t-esc="'{:g}'.format(l.agrogood_shortage_qty)"/>
+                                    en bodega
+                                </span>
+                            </t>
+                        </div>
+                    </t>
+                </t>
+            </div>
+
+            <t t-if="pedido.agrogood_editable">
+                <h2 class="ag-h2">Agregar algo mas</h2>
+                <input type="search" id="q-producto" class="ag-buscar"
+                       placeholder="Buscar producto" autocomplete="off"/>
+                <div id="lista-productos"></div>
+
+                <div class="ag-actions">
+                    <button type="button" id="btn-guardar"
+                            class="ag-btn ag-btn-primary ag-btn-xl">
+                        Guardar los cambios
+                    </button>
+                </div>
+
+                <h2 class="ag-h2">Anular</h2>
+                <div class="ag-note">
+                    <label class="ag-h">Por que se anula</label>
+                    <input type="text" id="motivo-anular" class="ag-select"
+                           placeholder="El cliente cancelo, se duplico, ..."/>
+                    <button type="button" id="btn-anular" class="ag-btn ag-btn-bad">
+                        Anular la orden
+                    </button>
+                </div>
+                <p class="ag-muted ag-pad">
+                    Poner una cantidad en cero borra esa linea. Anular pide el
+                    motivo a proposito: una orden anulada sin explicacion
+                    aparece en el historial del cliente como si nunca hubiera
+                    comprado, y despues el sistema lo llama por una racha que
+                    no existio.
+                </p>
+            </t>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/ventas_pedido.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/ventas_pedido.js?v=#{v}"/>
+        </t>
+    </template>
+
+    <!-- ============ VENTAS: CLIENTE NUEVO ============ -->
+    <!--
+        La linea comercial es el unico campo obligatorio ademas del nombre,
+        porque de ella sale la lista de precios: sin ella el primer pedido
+        saldria a cero.
+
+        El RUT no es obligatorio. Se puede vender y repartir sin el; lo que no
+        se puede es facturar. Pedirlo como obligatorio haria que alguien
+        inventara uno para poder seguir, y un RUT inventado es peor que ninguno.
+    -->
+
+    <template id="ventas_cliente" name="Ventas - cliente nuevo">
+        <t t-call="agrogood_pwa.layout">
+            <t t-set="titulo">Cliente nuevo</t>
+            <t t-set="volver">/agrogood/ventas</t>
+
+            <section id="et-form" class="ag-etapa">
+                <div class="ag-note">
+                    <label class="ag-h">Nombre del local</label>
+                    <input type="text" id="c-nombre" class="ag-select"
+                           placeholder="Como lo llaman ustedes" autocomplete="off"/>
+
+                    <label class="ag-h">Linea comercial</label>
+                    <select id="c-linea" class="ag-select">
+                        <option value="">Elegir...</option>
+                        <t t-foreach="lineas" t-as="l">
+                            <option t-att-value="l.id"><t t-esc="l.name"/></option>
+                        </t>
+                    </select>
+
+                    <label class="ag-h">RUT (se puede dejar para despues)</label>
+                    <input type="text" id="c-rut" class="ag-select"
+                           placeholder="76.593.894-5" autocomplete="off"/>
+
+                    <label class="ag-h">Direccion</label>
+                    <input type="text" id="c-calle" class="ag-select"
+                           placeholder="Calle y numero" autocomplete="off"/>
+
+                    <label class="ag-h">Comuna</label>
+                    <input type="text" id="c-ciudad" class="ag-select"
+                           placeholder="Concepcion, Talcahuano, ..." autocomplete="off"/>
+
+                    <label class="ag-h">Telefono</label>
+                    <input type="tel" id="c-movil" class="ag-select"
+                           placeholder="912345678" autocomplete="off"/>
+
+                    <button type="button" id="btn-crear"
+                            class="ag-btn ag-btn-primary ag-btn-xl">
+                        Crear el cliente
+                    </button>
+                </div>
+                <p class="ag-muted ag-pad">
+                    Sin RUT se le puede vender y repartir, pero no facturar. Si
+                    lo tienes a mano ahora, es el mejor momento: preguntarselo
+                    despues por telefono cuesta el doble.
+                </p>
+            </section>
+
+            <section id="et-hecho" class="ag-etapa ag-oculto">
+                <div class="ag-done-banner" id="hecho-texto"></div>
+                <a href="/agrogood/ventas/nuevo" class="ag-btn ag-btn-primary ag-btn-xl">
+                    Tomarle una orden ahora
+                </a>
+                <a href="/agrogood/ventas" class="ag-btn ag-btn-ghost">Volver al dia</a>
+            </section>
+
+            <t t-set="v" t-value="env['agrogood.estaticos'].version(
+                'agrogood_pwa/static/src/js/ventas_cliente.js')"/>
+            <script t-attf-src="/agrogood_pwa/static/src/js/ventas_cliente.js?v=#{v}"/>
         </t>
     </template>
 

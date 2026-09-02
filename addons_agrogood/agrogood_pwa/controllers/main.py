@@ -22,6 +22,13 @@ from odoo.http import request
 # mantener iguales acaban siendo distintas.
 from odoo.addons.agrogood_logistics.models.agrogood_vehicle_check import PUNTOS
 
+# El validador de RUT vive con las identidades de pago, que es donde
+# se escribio. Se importa en lugar de copiarlo: dos validadores de RUT
+# acaban discrepando, y el que se queda viejo es siempre el de la copia.
+from odoo.addons.agrogood_crm_reactivation.models.agrogood_payer import (
+    normalizar_rut,
+)
+
 
 class AgrogoodPwa(http.Controller):
 
@@ -575,6 +582,223 @@ class AgrogoodVentas(http.Controller):
             # Bodega no encuentra la mercaderia.
             'faltantes': sum(1 for l in pedido.order_line
                              if l.agrogood_shortage_qty > 0),
+        }
+
+
+    # ------------------------------------------------------------------
+    # Cambiar un pedido ya tomado
+    # ------------------------------------------------------------------
+
+    def _mi_pedido(self, order_id):
+        pedido = request.env['sale.order'].browse(int(order_id))
+        pedido.check_access('read')
+        return pedido
+
+    @http.route('/agrogood/ventas/pedido/<int:order_id>', type='http',
+                auth='user', website=False)
+    def ventas_pedido(self, order_id, **kw):
+        if not self._es_ventas():
+            return request.redirect('/agrogood/app')
+        pedido = self._mi_pedido(order_id)
+        estados = dict(pedido._fields['agrogood_state'].selection)
+        return request.render('agrogood_pwa.ventas_pedido', {
+            'pedido': pedido,
+            'etapa': estados.get(pedido.agrogood_state, ''),
+            'usuario': request.env.user,
+        })
+
+    @http.route('/agrogood/api/ventas/modificar', type='json', auth='user')
+    def api_modificar(self, order_id, lineas, **kw):
+        """Deja el pedido con EXACTAMENTE las lineas que llegan.
+
+        Se manda el pedido entero y no una lista de cambios. Con dos personas
+        editando el mismo pedido desde dos telefonos, una lista de cambios se
+        aplica sobre un pedido que ya no es el que se vio, y el resultado no es
+        ninguno de los dos. Mandarlo entero hace que gane el ultimo que guarda,
+        que es un resultado que al menos se puede explicar por telefono.
+
+        Cantidad cero borra la linea: en una pantalla de telefono es el gesto
+        natural, y evita un boton de borrar por linea.
+        """
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        pedido = self._mi_pedido(order_id)
+        try:
+            pedido._agrogood_check_editable()
+        except UserError as e:
+            return {'ok': False, 'mensaje': str(e)}
+
+        pedidas = {}
+        for l in lineas or []:
+            cantidad = float(l.get('qty') or 0)
+            if cantidad > 0:
+                pedidas[int(l['id'])] = cantidad
+        if not pedidas:
+            return {'ok': False, 'mensaje': _(
+                "El pedido quedaria sin ninguna linea. Si el cliente lo "
+                "anulo, usa Anular pedido: deja constancia de que se anulo, "
+                "en vez de un pedido vacio que nadie sabe que fue.")}
+
+        # El mismo control que al crear: un producto sin precio en la tarifa
+        # del cliente saldria a cero, y regalar mercaderia no se descubre hasta
+        # el cierre del mes.
+        tarifa = pedido.partner_id.property_product_pricelist
+        Prod = request.env['product.product']
+        sin_precio = [Prod.browse(i).display_name for i in pedidas
+                      if not tarifa or tarifa._get_product_price(
+                          Prod.browse(i), 1.0) <= 0]
+        if sin_precio:
+            salto = chr(10)
+            return {'ok': False, 'mensaje': _(
+                "Estos productos no tienen precio en la tarifa %(tarifa)s y "
+                "saldrian a cero:%(salto)s%(productos)s",
+                tarifa=tarifa.name if tarifa else _('del cliente'),
+                salto=salto,
+                productos=salto.join('  - ' + n for n in sin_precio))}
+
+        try:
+            # Elevado: cambiar un pedido confirmado reajusta las reservas de
+            # stock, y eso son permisos de inventario que Ventas no tiene ni
+            # debe tener. Se autoriza con la identidad real -arriba- y se
+            # ejecuta elevado, que es el patron de todos los endpoints.
+            elevado = pedido.sudo()
+            for linea in elevado.order_line:
+                producto = linea.product_id.id
+                if producto in pedidas:
+                    if linea.product_uom_qty != pedidas[producto]:
+                        linea.product_uom_qty = pedidas.pop(producto)
+                    else:
+                        pedidas.pop(producto)
+                    continue
+                # Quitar una linea de un pedido YA CONFIRMADO no es borrarla.
+                # Odoo no deja, y con razon: esa linea puede tener movimientos
+                # de stock detras. Se deja en cero, que es su forma de decir
+                # que eso ya no se pide sin perder el rastro de que estuvo.
+                try:
+                    linea.unlink()
+                except (UserError, ValidationError):
+                    linea.product_uom_qty = 0.0
+            for producto, cantidad in pedidas.items():
+                request.env['sale.order.line'].sudo().create({
+                    'order_id': elevado.id,
+                    'product_id': producto,
+                    'product_uom_qty': cantidad,
+                })
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+
+        pedido.invalidate_recordset()
+        return {
+            'ok': True,
+            'mensaje': _("%(pedido)s actualizado.", pedido=pedido.name),
+            'total': round(pedido.amount_untaxed),
+            'faltantes': sum(1 for l in pedido.order_line
+                             if l.agrogood_shortage_qty > 0),
+        }
+
+    @http.route('/agrogood/api/ventas/anular', type='json', auth='user')
+    def api_anular(self, order_id, motivo=None, **kw):
+        """Anula el pedido y deja escrito por que.
+
+        El motivo no es burocracia: un pedido anulado sin explicacion aparece
+        en el historial del cliente como si nunca hubiera comprado, y el CRM
+        acaba llamandolo por una racha que no existio.
+        """
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        pedido = self._mi_pedido(order_id)
+        if not (motivo or '').strip():
+            return {'ok': False,
+                    'mensaje': _("Anota por que se anula.")}
+        try:
+            pedido._agrogood_check_editable()
+            pedido.sudo()._action_cancel()
+            pedido.sudo().message_post(
+                body=_("Anulado desde Ventas: %s", motivo.strip()))
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {'ok': True,
+                'mensaje': _("%(pedido)s anulado.", pedido=pedido.name)}
+
+    # ------------------------------------------------------------------
+    # Dar de alta un cliente
+    # ------------------------------------------------------------------
+
+    @http.route('/agrogood/ventas/cliente', type='http', auth='user',
+                website=False)
+    def ventas_cliente_nuevo(self, **kw):
+        if not self._es_ventas():
+            return request.redirect('/agrogood/app')
+        return request.render('agrogood_pwa.ventas_cliente', {
+            'lineas': request.env['agrogood.business.line'].search([]),
+        })
+
+    @http.route('/agrogood/api/ventas/cliente_nuevo', type='json', auth='user')
+    def api_cliente_nuevo(self, nombre, business_line_id, vat=None,
+                          street=None, city=None, mobile=None, **kw):
+        """Crea el cliente con lo minimo para poder venderle.
+
+        La linea comercial es obligatoria porque de ella sale su lista de
+        precios: sin ella el primer pedido saldria a cero. El RUT no lo es -se
+        puede vender y repartir sin el, solo no facturar-, pero si viene se
+        valida el digito verificador aqui mismo, que es cien veces mas barato
+        que descubrirlo el dia que se emite la factura.
+        """
+        if not self._es_ventas():
+            raise AccessError(_("No tienes permiso de Ventas."))
+        nombre = (nombre or '').strip()
+        if len(nombre) < 3:
+            return {'ok': False, 'mensaje': _("Falta el nombre del cliente.")}
+        if not business_line_id:
+            return {'ok': False, 'mensaje': _(
+                "Elige la linea comercial: de ella sale la lista de precios, "
+                "y sin ella el pedido saldria a cero.")}
+
+        Socio = request.env['res.partner']
+        repetido = Socio.search([('name', '=ilike', nombre),
+                                 ('parent_id', '=', False)], limit=1)
+        if repetido:
+            return {'ok': False, 'mensaje': _(
+                "Ya existe un cliente que se llama %(nombre)s. Si es otro "
+                "local del mismo negocio, ponle el nombre de la sucursal.",
+                nombre=repetido.display_name)}
+
+        vals = {
+            'name': nombre,
+            'is_company': True,
+            'customer_rank': 1,
+            'agrogood_business_line_id': int(business_line_id),
+            'country_id': request.env.ref('base.cl').id,
+        }
+        if (vat or '').strip():
+            normalizado = normalizar_rut(vat)
+            if not normalizado:
+                return {'ok': False, 'mensaje': _(
+                    "%(rut)s no es un RUT valido: no cuadra el digito "
+                    "verificador. Revisalo con el cliente delante, que es "
+                    "cuando se puede preguntar.", rut=vat)}
+            en_uso = Socio.search([('vat', '=', normalizado)], limit=1)
+            if en_uso:
+                return {'ok': False, 'mensaje': _(
+                    "Ese RUT ya es de %(cliente)s.",
+                    cliente=en_uso.display_name)}
+            vals['vat'] = normalizado
+        for campo, valor in (('street', street), ('city', city),
+                             ('mobile', mobile)):
+            if (valor or '').strip():
+                vals[campo] = valor.strip()
+
+        try:
+            socio = Socio.sudo().create(vals)
+        except (UserError, ValidationError) as e:
+            return {'ok': False, 'mensaje': str(e)}
+        return {
+            'ok': True,
+            'id': socio.id,
+            'nombre': socio.display_name,
+            'mensaje': _("%(cliente)s creado. Ya se le puede tomar pedido.",
+                         cliente=socio.display_name),
+            'sin_rut': not socio.vat,
         }
 
 
