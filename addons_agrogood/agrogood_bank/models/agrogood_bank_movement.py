@@ -74,16 +74,29 @@ class AgrogoodBankMovement(models.Model):
     )
     match_reason = fields.Char(string="Por que", readonly=True)
 
+    # --- a que ordenes de compra se imputa ---
+    allocation_ids = fields.One2many(
+        comodel_name='agrogood.payment.allocation', inverse_name='movement_id',
+        string="Imputado a",
+    )
+    amount_applied = fields.Monetary(
+        string="Imputado", compute='_compute_imputado', store=True,
+    )
+    amount_unapplied = fields.Monetary(
+        string="Sin imputar", compute='_compute_imputado', store=True,
+        help="Lo que queda de este abono por asignar a alguna orden.",
+    )
+
     # --- lo que hace falta para decidir ---
     partner_due = fields.Monetary(
-        string="Debe", compute='_compute_deuda',
-        help="Lo que este cliente tiene pendiente ahora mismo.",
+        related='partner_id.agrogood_balance', string="Debe en total",
+        help="Lo que este cliente tiene entregado y sin pagar ahora mismo.",
     )
-    invoice_match_id = fields.Many2one(
-        comodel_name='account.move', string="Factura que calza",
+    order_match_id = fields.Many2one(
+        comodel_name='sale.order', string="Orden que calza",
         compute='_compute_deuda',
-        help="Una factura suya cuyo saldo pendiente coincide exactamente con "
-             "este abono. Cuando aparece, no hay nada que buscar.",
+        help="Una orden suya cuyo saldo coincide exactamente con lo que queda "
+             "de este abono. Cuando aparece, no hay nada que buscar.",
     )
 
     imported_on = fields.Datetime(string="Cargado el", readonly=True,
@@ -104,30 +117,42 @@ class AgrogoodBankMovement(models.Model):
                 dict(self._fields['bank'].selection).get(m.bank, ''),
                 m.date or '', "{:,.0f}".format(m.amount or 0).replace(",", "."))
 
-    def _compute_deuda(self):
-        """Lo que debe el cliente, y si alguna factura calza justo con el abono.
-
-        Se busca coincidencia EXACTA de saldo y no aproximada. Un abono que se
-        parece a una factura no dice nada util: en distribucion hay decenas de
-        facturas de importe parecido el mismo dia, y la que se parece casi
-        nunca es la que se pago.
-        """
-        Factura = self.env['account.move']
+    @api.depends('allocation_ids.amount', 'amount')
+    def _compute_imputado(self):
         for m in self:
-            m.partner_due = 0.0
-            m.invoice_match_id = False
-            if not m.partner_id:
+            m.amount_applied = sum(m.allocation_ids.mapped('amount'))
+            m.amount_unapplied = m.amount - m.amount_applied
+
+    def _ordenes_abiertas(self):
+        """Las ordenes de compra del cliente que quedan por cobrar, la mas
+        antigua primero. Cobrar por antiguedad no es una preferencia: es lo que
+        evita que una deuda vieja se quede atras mientras se van pagando las
+        nuevas."""
+        self.ensure_one()
+        if not self.partner_id:
+            return self.env['sale.order'].browse()
+        return self.env['sale.order'].search([
+            ('partner_id', 'child_of', self.partner_id.commercial_partner_id.id),
+            ('agrogood_collection_state', 'in', ('open', 'partial')),
+        ], order='date_order asc')
+
+    @api.depends('partner_id', 'amount_unapplied')
+    def _compute_deuda(self):
+        """Si alguna orden calza justo con lo que queda del abono.
+
+        Se busca coincidencia EXACTA y no aproximada. Un abono que se PARECE a
+        una orden no dice nada util: en distribucion hay decenas de entregas de
+        importe parecido la misma semana, y la que se parece casi nunca es la
+        que se pago.
+        """
+        for m in self:
+            m.order_match_id = False
+            if not m.partner_id or m.currency_id.is_zero(m.amount_unapplied):
                 continue
-            abiertas = Factura.search([
-                ('partner_id', 'child_of', m.partner_id.commercial_partner_id.id),
-                ('move_type', '=', 'out_invoice'),
-                ('state', '=', 'posted'),
-                ('payment_state', 'in', ('not_paid', 'partial')),
-            ])
-            m.partner_due = sum(abiertas.mapped('amount_residual'))
-            calza = abiertas.filtered(
-                lambda f: m.currency_id.is_zero(f.amount_residual - m.amount))
-            m.invoice_match_id = calza[:1]
+            calza = m._ordenes_abiertas().filtered(
+                lambda o: m.currency_id.is_zero(
+                    o.agrogood_due_amount - m.amount_unapplied))
+            m.order_match_id = calza[:1]
 
     # ------------------------------------------------------------------
     # cruce
@@ -212,20 +237,60 @@ class AgrogoodBankMovement(models.Model):
             })
         return res
 
-    def action_ver_facturas(self):
-        """Las facturas abiertas de este cliente, para asentar el pago."""
+    def action_ver_ordenes(self):
+        """Las ordenes por cobrar de este cliente."""
         self.ensure_one()
         if not self.partner_id:
             raise UserError(_("Primero hay que decir de quien es este abono."))
         return {
             'type': 'ir.actions.act_window',
-            'name': _("Facturas por cobrar de %s", self.partner_id.display_name),
-            'res_model': 'account.move',
+            'name': _("Por cobrar a %s", self.partner_id.display_name),
+            'res_model': 'sale.order',
             'view_mode': 'list,form',
-            'domain': [
-                ('partner_id', 'child_of', self.partner_id.commercial_partner_id.id),
-                ('move_type', '=', 'out_invoice'),
-                ('state', '=', 'posted'),
-                ('payment_state', 'in', ('not_paid', 'partial')),
-            ],
+            'domain': [('id', 'in', self._ordenes_abiertas().ids)],
+            'context': {'create': False},
+        }
+
+    def action_imputar(self):
+        """Reparte el abono entre las ordenes pendientes, la mas antigua primero.
+
+        Es una propuesta, no un asiento: deja las lineas de imputacion a la
+        vista y se pueden borrar una a una si el cliente pagaba otra cosa. Lo
+        habitual es que acierte -en distribucion se paga por antiguedad-, y lo
+        que se ahorra es teclear el reparto de una transferencia que cubre
+        cuatro entregas.
+
+        Si sobra dinero, sobra y se ve. Un abono que no calza con nada suele
+        ser un anticipo o un pago de algo que todavia no esta en el sistema, y
+        forzarlo a cuadrar seria inventar la deuda que falta.
+        """
+        Imputacion = self.env['agrogood.payment.allocation']
+        creadas = 0
+        for m in self:
+            if not m.partner_id:
+                continue
+            queda = m.amount_unapplied
+            for orden in m._ordenes_abiertas():
+                if m.currency_id.is_zero(queda) or queda <= 0:
+                    break
+                debe = orden.agrogood_due_amount
+                if debe <= 0:
+                    continue
+                importe = min(queda, debe)
+                Imputacion.create({
+                    'movement_id': m.id, 'order_id': orden.id,
+                    'amount': importe,
+                })
+                queda -= importe
+                creadas += 1
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {
+                'type': 'success' if creadas else 'warning',
+                'message': _("%(n)s imputaciones creadas.", n=creadas) if creadas
+                else _("No hay ninguna orden de compra pendiente a la que "
+                       "imputar esto. Puede ser un anticipo, o un cobro de algo "
+                       "que todavia no esta cargado en el sistema."),
+                'next': {'type': 'ir.actions.act_window_close'},
+            },
         }

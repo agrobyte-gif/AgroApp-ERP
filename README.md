@@ -39,7 +39,7 @@ que actualizar Odoo no destruya el trabajo.
 | `agrogood_tracking` | Ubicación del conductor y mapa de seguimiento |
 | `agrogood_pwa` | La aplicación propia: una pantalla por rol |
 | `agrogood_crm_reactivation` | Comportamiento de compra y lista de recontacto |
-| `agrogood_bank` | Lee la cartola del banco y dice quién pagó |
+| `agrogood_bank` | Cobranza: cuenta corriente del cliente y cartola del banco |
 | `agrogood_alerts` | Avisos automáticos hacia el responsable de cada cosa |
 | `agrogood_dashboards` | Un panel por rol |
 | `agrogood_branding` | La aplicación se presenta como Agroapp |

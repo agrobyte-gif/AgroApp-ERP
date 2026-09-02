@@ -29,8 +29,9 @@
                 <field name="description" readonly="1" optional="hide"/>
                 <field name="partner_id"
                        placeholder="De quien es este abono"/>
-                <field name="partner_due" readonly="1" optional="show"/>
-                <field name="invoice_match_id" readonly="1" optional="show"/>
+                <field name="amount_unapplied" readonly="1" optional="show"/>
+                <field name="partner_due" readonly="1" optional="hide"/>
+                <field name="order_match_id" readonly="1" optional="show"/>
                 <field name="match_reason" readonly="1" optional="hide"/>
                 <field name="state" readonly="1" widget="badge"
                        decoration-success="state == 'identified'"
@@ -39,8 +40,12 @@
                 <button name="action_descartar" type="object" icon="fa-ban"
                         title="No es un cobro de cliente"
                         invisible="state == 'discarded'"/>
-                <button name="action_ver_facturas" type="object"
-                        icon="fa-file-text-o" title="Ver sus facturas por cobrar"
+                <button name="action_imputar" type="object"
+                        icon="fa-check-square-o"
+                        title="Imputar a sus ordenes mas antiguas"
+                        invisible="not partner_id"/>
+                <button name="action_ver_ordenes" type="object"
+                        icon="fa-list" title="Ver sus ordenes por cobrar"
                         invisible="not partner_id"/>
             </list>
         </field>
@@ -54,6 +59,10 @@
                 <header>
                     <button name="action_cruzar" type="object" string="Volver a cruzar"
                             class="btn-secondary"/>
+                    <button name="action_imputar" type="object"
+                            string="Imputar a las mas antiguas"
+                            class="btn-primary"
+                            invisible="not partner_id or amount_unapplied &lt;= 0"/>
                     <button name="action_descartar" type="object"
                             string="No es un cobro" class="btn-secondary"
                             invisible="state == 'discarded'"/>
@@ -80,9 +89,11 @@
                             <field name="partner_id"/>
                             <field name="match_reason" readonly="1"/>
                             <field name="partner_due" readonly="1"/>
-                            <field name="invoice_match_id" readonly="1"/>
-                            <button name="action_ver_facturas" type="object"
-                                    string="Ver sus facturas por cobrar"
+                            <field name="amount_applied" readonly="1"/>
+                            <field name="amount_unapplied" readonly="1"/>
+                            <field name="order_match_id" readonly="1"/>
+                            <button name="action_ver_ordenes" type="object"
+                                    string="Ver sus ordenes por cobrar"
                                     class="btn-link" invisible="not partner_id"/>
                         </group>
                     </group>
@@ -103,6 +114,16 @@
                             <strong>Volver a cruzar</strong>.
                         </p>
                     </div>
+                    <separator string="Imputado a estas ordenes de compra"
+                               invisible="not allocation_ids"/>
+                    <field name="allocation_ids" nolabel="1"
+                           invisible="not allocation_ids">
+                        <list editable="bottom">
+                            <field name="order_id"/>
+                            <field name="amount"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
                 </sheet>
             </form>
         </field>
@@ -132,6 +153,8 @@
                         domain="[('state', '=', 'doubtful')]"/>
                 <filter name="f_identificados" string="Se sabe quien pago"
                         domain="[('state', '=', 'identified')]"/>
+                <filter name="f_sin_imputar" string="Sin imputar"
+                        domain="[('amount_unapplied', '&gt;', 0)]"/>
                 <separator/>
                 <filter name="f_mes" string="Este mes" date="date"/>
                 <group expand="0" string="Agrupar por">

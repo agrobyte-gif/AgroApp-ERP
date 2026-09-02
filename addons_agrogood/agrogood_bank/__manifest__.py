@@ -26,8 +26,14 @@ dueno que paga por el suyo y por el de un socio. Cuando pasa, el abono queda
 marcado como dudoso y espera a una persona. Repartir ese cobro solo seria dar
 por pagada la factura del otro.
 
-No se registra ningun pago automaticamente. El modulo dice quien pago y que
-debe; asentarlo sigue siendo una decision de una persona.
+La cobranza se lleva sobre la **orden de compra** y no sobre facturas: Agrogood
+emite sus documentos en el portal del SII, de modo que en Odoo no hay ni una
+factura de venta (ADR-006). Se debe **lo entregado**, no lo pedido, que es la
+misma regla que aplica la facturacion.
+
+Un abono se reparte entre las ordenes pendientes de la mas antigua a la mas
+nueva, porque una transferencia suele cubrir varias entregas. Lo que sobra se
+ve sobrar: forzarlo a cuadrar seria inventar la deuda que falta.
 """,
     'author': 'Agrogood',
     'website': 'https://www.agrogood.cl',
@@ -37,10 +43,12 @@ debe; asentarlo sigue siendo una decision de una persona.
     'depends': [
         'agrogood_crm_reactivation',
         'account',
+        'sale_management',
     ],
     'data': [
         'security/ir.model.access.csv',
         'views/agrogood_bank_movement_views.xml',
+        'views/cuenta_corriente_views.xml',
         'wizard/agrogood_bank_import_views.xml',
         'views/menus.xml',
     ],

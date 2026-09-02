@@ -17,6 +17,12 @@
     <menuitem id="menu_cobros_todos" name="Todos los abonos"
               parent="menu_cobros" action="movement_action" sequence="20"/>
 
+    <menuitem id="menu_cobros_saldos" name="Saldos de clientes"
+              parent="menu_cobros" action="saldos_action" sequence="5"/>
+
+    <menuitem id="menu_cobros_ordenes" name="Ordenes por cobrar"
+              parent="menu_cobros" action="orden_cobrar_action" sequence="8"/>
+
     <menuitem id="menu_cobros_cargar" name="Cargar cartola del banco"
               parent="menu_cobros" action="import_action" sequence="30"/>
 
