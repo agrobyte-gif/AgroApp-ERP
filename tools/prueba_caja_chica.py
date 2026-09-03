@@ -69,6 +69,12 @@ print("CAJA CHICA")
 print("=" * 74)
 
 Caja = env['agrogood.petty.cash']
+# La prueba mide su propio movimiento contra este punto de partida, no contra
+# cero. La caja de verdad puede tener ya un sobre cargado -de hecho lo tiene,
+# para poder probarla en el telefono- y una prueba que diera por vacia la base
+# fallaria por plata que no puso ella. El saldo es un acumulado: importa cuanto
+# lo mueve cada movimiento, no en que numero cae.
+saldo_base = Caja.saldo()
 victor = env['res.users'].search([('login', '=', 'victor@agrogood.cl')], limit=1)
 johan = env['res.users'].search([('login', '=', 'johan@agrogood.cl')], limit=1)
 picker = env['res.users'].search(
@@ -105,22 +111,31 @@ rechaza("Un monto negativo no entra",
 print()
 print("EL SALDO DEL SOBRE")
 
+# Hasta aqui la prueba lleva gastados 15.000 (12.000 + 3.000). La reposicion
+# sube 100.000, de modo que el saldo tiene que quedar 85.000 por encima de
+# donde arranco, sea cual sea ese numero.
 reposicion = Caja.create({'kind': 'reposicion', 'amount': 100000,
                           'note': 'Sobre de septiembre'})
-paso("La reposicion suma", Caja.saldo() == 100000 - 15000,
-     "100.000 repuestos menos 15.000 gastados = %s"
+paso("La reposicion suma", Caja.saldo() == saldo_base + 100000 - 15000,
+     "85.000 mas que al empezar; ahora hay %s"
      % "{:,.0f}".format(Caja.saldo()).replace(",", "."))
 
 con_foto.invalidate_recordset()
+# La reposicion es el ultimo movimiento, asi que lo que quedaba despues de ella
+# es el saldo de ahora. Es la invariante que ata las dos cuentas -recorrer
+# desde el principio y sumar el total- sin depender de con que numero arranco.
 paso("Cada movimiento sabe cuanto quedaba despues de el",
-     reposicion.balance_after == 85000,
+     reposicion.balance_after == Caja.saldo(),
      "el saldo se recorre desde el principio, no se resta del total")
 
-gasto_grande = Caja.create({'kind': 'gasto', 'amount': 200000,
+# Un gasto mayor que lo que hay tiene que dejar el sobre en rojo y anotarse
+# igual. Se dimensiona sobre el saldo actual para que caiga en negativo
+# cualquiera sea el punto de partida.
+gasto_grande = Caja.create({'kind': 'gasto', 'amount': Caja.saldo() + 50000,
                             'category': 'mercaderia', 'receipt': BOLETA,
                             'note': 'Compra de urgencia en la feria'})
 paso("Un gasto que deja el sobre en negativo se ANOTA igual",
-     Caja.saldo() < 0,
+     bool(gasto_grande.id) and Caja.saldo() < 0,
      "bloquearlo solo conseguiria que no se anotara en ningun sitio")
 
 # ------------------------------------------------ 3. quien puede y quien no
