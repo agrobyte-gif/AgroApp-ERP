@@ -1,6 +1,9 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from odoo.addons.agrogood_crm_reactivation.models.agrogood_payer import (
+    normalizar_rut)
+
 ESTADOS = [
     ('identified', "Se sabe quien pago"),
     ('doubtful', "Hay que mirarlo"),
@@ -18,7 +21,13 @@ MOTIVOS = {
     'discrepan': "El RUT dice un cliente y el nombre dice otro",
     'nada': "No se reconocio al pagador",
     'manual': "Lo enlazo una persona",
+    'propia': "Es una cuenta de la propia empresa",
 }
+
+# Donde se guardan los RUT de la propia empresa, separados por comas.
+# Se edita desde Ajustes > Tecnico > Parametros del sistema, sin tocar codigo:
+# una empresa abre cuentas y constituye sociedades, y esa lista cambia.
+PARAM_PROPIOS = 'agrogood_bank.ruts_propios'
 
 
 class AgrogoodBankMovement(models.Model):
@@ -157,6 +166,33 @@ class AgrogoodBankMovement(models.Model):
     # ------------------------------------------------------------------
     # cruce
 
+    @api.model
+    def _ruts_propios(self):
+        """Los RUT de la propia empresa, normalizados.
+
+        Traspasarse plata entre cuentas propias entra por la cartola igual que
+        un pago de cliente, y ahi se queda sin nombre para siempre porque
+        ningun cliente lo va a reclamar. En la cartola de Agrogood son 403
+        movimientos por 169 millones: la quinta parte de lo que se veia como
+        "cobros sin identificar" no era un cobro.
+
+        Importa mas de lo que parece. Mientras esa plata cuenta como cobro sin
+        identificar, el porcentaje de reconocimiento miente, y se dedica
+        trabajo a buscarle cliente a algo que no lo tiene.
+        """
+        crudo = self.env['ir.config_parameter'].sudo().get_param(PARAM_PROPIOS, '')
+        propios = set()
+        for trozo in (crudo or '').replace(';', ',').split(','):
+            r = normalizar_rut(trozo)
+            if r:
+                propios.add(r)
+        # El RUT de la ficha de la empresa cuenta sin tener que repetirlo.
+        for compania in self.env['res.company'].sudo().search([]):
+            r = normalizar_rut(compania.vat)
+            if r:
+                propios.add(r)
+        return propios
+
     def _cruzar(self):
         """Vuelve a deducir el cliente de cada abono. Devuelve cuantos cambiaron.
 
@@ -169,9 +205,21 @@ class AgrogoodBankMovement(models.Model):
         ahi, y volver a cruzar no es motivo para deshacerlo.
         """
         Identidad = self.env['agrogood.payer']
+        propios = self._ruts_propios()
         cambiados = 0
         for m in self:
             if m.state in ('discarded',) or m.match_reason == MOTIVOS['manual']:
+                continue
+            # Cuenta propia antes que nada: no hay cliente que deducir, y
+            # buscarselo solo lo dejaria dudoso o pegado al cliente equivocado
+            # si alguna vez ese RUT se aprendio por error.
+            if m.payer_rut and normalizar_rut(m.payer_rut) in propios:
+                if m.state != 'discarded':
+                    cambiados += 1
+                m.with_context(agrogood_sin_aprender=True).write({
+                    'partner_id': False, 'state': 'discarded',
+                    'match_reason': MOTIVOS['propia'],
+                })
                 continue
             socio, motivo = Identidad.resolver(rut=m.payer_rut, alias=m.payer_alias)
             estado = 'identified' if socio else (

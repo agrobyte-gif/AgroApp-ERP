@@ -196,6 +196,47 @@ lote[2]._cruzar()
 paso("Lo descartado a mano no vuelve a cruzarse solo",
      lote[2].state == 'discarded' and not lote[2].partner_id)
 
+# ------------------------------------------------- 4. la plata de uno mismo
+print()
+print("LA PLATA QUE NO ES DE NADIE")
+
+# Un traspaso entre cuentas propias entra por la cartola igual que el pago de
+# un cliente, y sin esta regla se queda esperando un nombre para siempre:
+# ningun cliente lo va a reclamar. En la cartola de marzo son 403 movimientos
+# por 169 millones, y mientras contaban como cobro sin identificar el
+# porcentaje de reconocimiento mentia.
+Parametro = env['ir.config_parameter'].sudo()
+antes_param = Parametro.get_param('agrogood_bank.ruts_propios', '')
+Parametro.set_param('agrogood_bank.ruts_propios', '77.135.321-5')
+
+propio = Movimiento.create({
+    'bank': 'scotiabank', 'date': '2026-08-31', 'amount': 4500000,
+    'payer_rut': '00077135321-5', 'payer_alias': 'AGROGOOD',
+    'unique_key': 'prueba|propio',
+})
+propio._cruzar()
+paso("Un traspaso de la propia empresa no es un cobro",
+     propio.state == 'discarded' and not propio.partner_id,
+     propio.match_reason)
+
+paso("Y se dice por que, no solo que si",
+     'propia' in (propio.match_reason or '').lower(),
+     "en una pantalla de dinero hay que poder responder por que")
+
+# Escrito con ceros por delante y con puntos: es como lo manda Santander.
+paso("Da igual como lo escriba el banco",
+     '77135321-5' in Movimiento._ruts_propios(),
+     "se compara normalizado, o el mismo RUT parece cuatro RUT distintos")
+
+propio._cruzar()
+paso("Volver a cruzar no lo resucita", propio.state == 'discarded')
+
+paso("Descartarlo no ensena nada",
+     not Identidad.search_count([('value', '=', '77135321-5')]),
+     "una cuenta propia no es un cliente y no debe quedar como identidad")
+
+Parametro.set_param('agrogood_bank.ruts_propios', antes_param or '')
+
 try:
     Movimiento.create({
         'bank': 'santander', 'date': '2026-08-31', 'amount': 390000,

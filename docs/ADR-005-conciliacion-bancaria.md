@@ -207,3 +207,85 @@ ese cliente -y marca la que calza exactamente con el importe-, pero conciliar
 sigue siendo una decision de una persona con la factura delante. Dar por
 cobrada la factura equivocada no se descubre al dia siguiente: se descubre
 semanas despues, reclamando una deuda que ya estaba pagada.
+
+---
+
+## Enmienda 3 - 3 de septiembre de 2026: se midio sobre la cartola ya cargada
+
+Las cifras de arriba salieron de un ensayo con rollback. Con los 13.167
+movimientos ya en la base, se volvio a medir **en plata** y no en cantidad de
+abonos, que es lo que decide donde vale la pena trabajar. Cambia el cuadro.
+
+### Reconociamos el 17% del dinero, no el 33% de los abonos
+
+| | Abonos | Plata |
+|---|---|---|
+| Reconocidos | 4.326 | 731.292.968 |
+| Sin nombre | 8.841 | 3.501.964.726 |
+
+Contar abonos hacia parecer el problema mas chico de lo que era: los que se
+reconocian solos eran los pequenos. **El cruce no falla -funciona-: lo que
+falta son los datos.**
+
+### Los pendientes son dos problemas distintos, no uno
+
+Al separarlos aparecio que se habian estado tratando igual dos cosas que
+cuestan trabajos muy distintos:
+
+| | Abonos | Plata | Claves distintas | Cuantas cubren el grueso |
+|---|---|---|---|---|
+| Traen RUT | 7.885 | 1.500.119.292 | 454 RUT | 30 son el 71% |
+| Solo nombre del banco | 956 | 2.001.845.434 | 139 nombres | **10 son el 94%** |
+
+El segundo grupo es **mas plata con menos filas**, y se habia quedado detras
+del primero porque son menos abonos. Ordenar por cantidad de movimientos en
+vez de por monto habria mandado el trabajo al lado equivocado.
+
+Por eso `exportar_pagadores.py` saca **dos hojas**, la de nombres primero, las
+dos ordenadas por monto y con el porcentaje acumulado al lado: para poder
+parar donde deje de rendir en vez de tener que llegar al final.
+
+### Los traspasos entre cuentas propias no son cobros pendientes
+
+403 movimientos por 169 millones venian del RUT `77135321-5`, que es de
+Agrogood. Esa plata no la va a reclamar ningun cliente, de modo que estaba
+condenada a quedarse en "sin identificar" para siempre, inflando el trabajo
+pendiente y desinflando el porcentaje de reconocimiento.
+
+Ahora `_cruzar()` los descarta con el motivo a la vista, leyendo la lista del
+parametro `agrogood_bank.ruts_propios` -editable desde Ajustes, porque una
+empresa abre cuentas y constituye sociedades- mas el RUT de la ficha de la
+compania.
+
+**Se esperaba mas de este cambio del que dio: movio el reconocimiento del 17%
+al 18%.** La hipotesis de que buena parte de lo no identificado fuera plata
+propia moviendose era comoda y era falsa. Se deja escrito para no volver a
+proponerla.
+
+### El grueso no es un problema de programacion
+
+Con las 22 identidades que se pueden proponer solas -nombres del banco que
+coinciden exactamente con un cliente que ya existe- el reconocimiento pasa
+**del 18% al 45%** sin que nadie escriba nada.
+
+Lo demas no lo arregla el codigo. De los 97 nombres que la planilla de RUT ya
+tenia, **solo 2 coinciden con un cliente de Odoo**: hay 157 clientes en la
+base contra 454 RUT y 139 nombres que transfieren plata todos los meses.
+AMADOR, ANDES SUSHI, BIG CUT, BRONTO FOOD pagan millones y no existen como
+ficha.
+
+**Completar la lista de clientes es la palanca**, y sigue siendo la misma
+conclusion del analisis original, ahora con el numero al lado.
+
+### Lo que se decidio NO hacer
+
+**No crear clientes desde la importacion.** `importar_pagadores.py` informa los
+nombres que no existen y no los crea. Crearlos ahi llenaria la lista de
+variantes tipograficas del mismo negocio, y cada variante parte su cuenta
+corriente en dos: la deuda queda repartida entre dos fichas y ninguna de las
+dos dice lo que el cliente debe.
+
+**No proponer por parecido, solo por igualdad exacta.** En esta misma cartola
+`RESTAURANT PAC LIMITADA` se parece un 83% a `RESTAURANT KEKA`. Dar por pagada
+la factura de otro cliente no es un dato mal puesto: es un cobro que se deja
+de perseguir, y se descubre semanas despues reclamando una deuda saldada.

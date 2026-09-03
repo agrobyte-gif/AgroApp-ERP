@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Los RUT de la propia empresa.
+
+        Un traspaso entre cuentas propias entra por la cartola exactamente
+        igual que el pago de un cliente, y sin esta lista se queda esperando un
+        nombre para siempre: ningun cliente lo va a reclamar. En la cartola de
+        marzo son 403 movimientos por 169 millones, la quinta parte de todo lo
+        que figuraba como cobro sin identificar.
+
+        Va con noupdate para que actualizar el modulo no pise lo que se haya
+        agregado despues. Se edita en Ajustes > Tecnico > Parametros del
+        sistema, buscando agrogood_bank.ruts_propios, separando por comas.
+    -->
+    <data noupdate="1">
+        <record id="param_ruts_propios" model="ir.config_parameter">
+            <field name="key">agrogood_bank.ruts_propios</field>
+            <field name="value">77135321-5</field>
+        </record>
+    </data>
+</odoo>

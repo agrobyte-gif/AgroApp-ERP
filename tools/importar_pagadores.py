@@ -2,8 +2,9 @@
 
     odoo-bin shell -c config/odoo.conf -d agrogood_dev --no-http < tools/importar_pagadores.py
 
-Lee C:\\dev\\Pagadores por identificar.xlsx, guarda cada RUT como identidad de
-pago del cliente que se escribio al lado, y vuelve a cruzar los abonos.
+Lee C:\\dev\\Pagadores por identificar.xlsx -sus dos hojas- guarda cada RUT y
+cada nombre del banco como identidad de pago del cliente que se escribio al
+lado, y vuelve a cruzar los abonos.
 
 Tres decisiones que conviene tener a la vista:
 
@@ -12,14 +13,17 @@ Tres decisiones que conviene tener a la vista:
    de variantes tipograficas del mismo negocio, que despues hay que fusionar a
    mano y mientras tanto parten la cuenta corriente en dos.
 
-2. **Un RUT que ya es de otro cliente no se pisa: se marca compartido.** Es lo
-   que hace `aprender()`, y es lo que pasa de verdad -la sociedad que paga por
-   dos locales-. A partir de ahi ese RUT espera a una persona en vez de
-   asignar solo.
+2. **Una identidad que ya es de otro cliente no se pisa: se marca compartida.**
+   Es lo que hace `aprender()`, y es lo que pasa de verdad -la sociedad que
+   paga por dos locales-. A partir de ahi esa identidad espera a una persona
+   en vez de asignar sola.
 
 3. **Se aprende, y recien despues se cruza.** Cruzar primero no serviria de
    nada: lo que hace que el cruce encuentre algo nuevo es justamente lo que se
    acaba de ensenar.
+
+Se puede correr las veces que haga falta: lo que ya estaba se cuenta aparte y
+no se vuelve a escribir.
 """
 
 import os
@@ -30,97 +34,133 @@ except ImportError:
     raise SystemExit("Falta openpyxl: .venv\\Scripts\\pip install openpyxl")
 
 from odoo.addons.agrogood_crm_reactivation.models.agrogood_payer import (
-    normalizar_rut)
+    normalizar_alias, normalizar_rut)
 
 ORIGEN = r"C:\dev\Pagadores por identificar.xlsx"
 if not os.path.exists(ORIGEN):
     raise SystemExit("No esta %s. Primero: tools/exportar_pagadores.py" % ORIGEN)
 
-hoja = openpyxl.load_workbook(ORIGEN, data_only=True).active
-filas = list(hoja.iter_rows(values_only=True))
-cab = [str(c or "").strip().upper() for c in filas[0]]
-
-
-def cual(*claves):
-    for i, c in enumerate(cab):
-        if any(k in c for k in claves):
-            return i
-    raise SystemExit("No encuentro la columna %s en la planilla." % (claves,))
-
-
-iru, ino = cual("RUT"), cual("CLIENTE")
-
 P = env['res.partner']
 Pagador = env['agrogood.payer']
+M = env['agrogood.bank.movement']
 
 
 def compacto(t):
     return " ".join(str(t or "").split()).upper()
 
 
-# El indice se arma una vez: buscar cliente por cliente con ilike sobre 450
-# filas es lento y ademas encuentra parecidos, que es lo que no se quiere.
+# El indice se arma una vez: buscar cliente por cliente con ilike sobre 600
+# filas es lento y ademas encuentra parecidos, que es justo lo que no se
+# quiere aqui.
 indice = {}
 for c in P.search([('customer_rank', '>', 0)]):
     indice.setdefault(compacto(c.name), c)
 
-aprendidos, ya_estaban, sin_ficha, sin_nombre = 0, 0, {}, 0
+libro = openpyxl.load_workbook(ORIGEN, data_only=True)
+resumen = []
+sin_ficha = {}
 
-for f in filas[1:]:
-    if iru >= len(f) or ino >= len(f):
-        continue
-    rut = normalizar_rut(f[iru])
-    nombre = str(f[ino] or "").strip()
-    if not rut:
-        continue
-    if not nombre:
-        sin_nombre += 1
-        continue
-    cliente = indice.get(compacto(nombre))
-    if not cliente:
-        sin_ficha[nombre] = sin_ficha.get(nombre, 0) + 1
-        continue
-    existe = Pagador.search([('kind', '=', 'rut'), ('value', '=', rut)], limit=1)
-    if existe and existe.partner_id == cliente:
-        ya_estaban += 1
-        continue
-    Pagador.aprender(cliente, rut=rut)
-    aprendidos += 1
+
+def leer_hoja(nombre_hoja, tipo):
+    """Aprende una hoja. `tipo` es 'rut' o 'alias'."""
+    if nombre_hoja not in libro.sheetnames:
+        print("  (no hay hoja '%s' en la planilla)" % nombre_hoja)
+        return
+    hoja = libro[nombre_hoja]
+    filas = list(hoja.iter_rows(values_only=True))
+    if not filas:
+        return
+    cab = [str(c or "").strip().upper() for c in filas[0]]
+
+    def cual(*claves):
+        for i, c in enumerate(cab):
+            if any(k in c for k in claves):
+                return i
+        raise SystemExit("Falta la columna %s en la hoja %s"
+                         % (claves, nombre_hoja))
+
+    icl, ino = 0, cual("CLIENTE")
+    nuevas, ya, vacias = 0, 0, 0
+
+    for f in filas[1:]:
+        if ino >= len(f):
+            continue
+        valor = (normalizar_rut(f[icl]) if tipo == 'rut'
+                 else normalizar_alias(f[icl]))
+        nombre = str(f[ino] or "").strip()
+        if not valor:
+            continue
+        if not nombre:
+            vacias += 1
+            continue
+        cliente = indice.get(compacto(nombre))
+        if not cliente:
+            sin_ficha[nombre] = sin_ficha.get(nombre, 0) + 1
+            continue
+        existe = Pagador.search(
+            [('kind', '=', tipo), ('value', '=', valor)], limit=1)
+        if existe and existe.partner_id == cliente:
+            ya += 1
+            continue
+        Pagador.aprender(cliente, **{tipo: valor})
+        nuevas += 1
+
+    resumen.append((nombre_hoja, nuevas, ya, vacias))
+
 
 print("=" * 74)
 print("IDENTIDADES DE PAGO")
 print("=" * 74)
-print("  aprendidas ahora      : %d" % aprendidos)
-print("  ya estaban            : %d" % ya_estaban)
-print("  sin nombre en la hoja : %d  (se dejan para despues)" % sin_nombre)
-print("  nombre que no existe  : %d" % len(sin_ficha))
-for n in sorted(sin_ficha)[:15]:
-    print("      %s" % n)
-if len(sin_ficha) > 15:
-    print("      ... y %d mas" % (len(sin_ficha) - 15))
+leer_hoja("Nombres del banco", 'alias')
+leer_hoja("Pagadores por RUT", 'rut')
+
+for hoja, nuevas, ya, vacias in resumen:
+    print()
+    print("  %s" % hoja)
+    print("      aprendidas ahora      : %d" % nuevas)
+    print("      ya estaban            : %d" % ya)
+    print("      sin nombre en la hoja : %d  (se dejan para despues)" % vacias)
+
 if sin_ficha:
     print()
-    print("  Esos nombres no estan en la lista de clientes de Odoo. O se")
-    print("  corrige la escritura en la planilla, o se crea la ficha antes.")
+    print("  NOMBRES QUE NO EXISTEN COMO CLIENTE: %d" % len(sin_ficha))
+    for n in sorted(sin_ficha)[:15]:
+        print("      %s" % n)
+    if len(sin_ficha) > 15:
+        print("      ... y %d mas" % (len(sin_ficha) - 15))
+    print()
+    print("  O se corrige la escritura en la planilla, o se crea la ficha")
+    print("  antes. Aqui no se crean: cada variante tipografica del mismo")
+    print("  negocio parte su cuenta corriente en dos.")
 
 # Ahora si: se vuelve a mirar lo que estaba sin nombre.
-M = env['agrogood.bank.movement']
 antes = M.search_count([('state', '=', 'identified')])
 pendientes = M.search([('state', 'in', ('unknown', 'doubtful'))])
 print()
 print("Volviendo a cruzar %d abonos..." % len(pendientes))
 pendientes._cruzar()
 env.cr.flush()
-despues = M.search_count([('state', '=', 'identified')])
 
 
 def plata(x):
     return "{:,.0f}".format(x).replace(",", ".")
 
 
-nuevos = M.search([('state', '=', 'identified')])
-print("  reconocidos antes : %d" % antes)
-print("  reconocidos ahora : %d   (+%d)" % (despues, despues - antes))
-print("  plata reconocida  : %s" % plata(sum(nuevos.mapped('amount'))))
+print()
+for est, etiqueta in (('identified', 'reconocidos'), ('unknown', 'sin nombre'),
+                      ('doubtful', 'dudosos'), ('discarded', 'no son cobros')):
+    r = M.search([('state', '=', est), ('amount', '>', 0)])
+    print("  %-14s %5d   %16s"
+          % (etiqueta, len(r), plata(sum(r.mapped('amount')))))
+
+cobros = M.search([('state', 'in', ('identified', 'unknown', 'doubtful')),
+                   ('amount', '>', 0)])
+ident = M.search([('state', '=', 'identified'), ('amount', '>', 0)])
+total = sum(cobros.mapped('amount')) or 1.0
+print()
+print("  reconocidos antes: %d   ahora: %d   (+%d)"
+      % (antes, len(ident), len(ident) - antes))
+print("  De la plata que si es cobro de cliente, se reconoce el %.0f%%"
+      % (100.0 * sum(ident.mapped('amount')) / total))
 print()
 print("Nada esta guardado todavia. Para dejarlo: env.cr.commit()")
