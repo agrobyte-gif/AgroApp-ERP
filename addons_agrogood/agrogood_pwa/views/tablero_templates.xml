@@ -72,6 +72,32 @@
                 son pantallas con tablas anchas que no caben en un telefono.
                 Los de <strong>telefono</strong> son las pantallas propias.
             </p>
+
+            <p class="ag-muted ag-pad" id="ag-tablero-hora"></p>
+
+            <!--
+                Las cifras se calculan al cargar. Un tablero que se deja abierto
+                y se vuelve a mirar media hora despues muestra numeros viejos
+                sin avisar, y sobre ellos se decide mal. Se hacen dos cosas: se
+                dice a que hora se miraron, y si al volver a la pantalla han
+                pasado mas de dos minutos, se recarga sola. Recargar al instante
+                cada vez seria un parpadeo molesto; dos minutos es donde el dato
+                viejo empieza a importar mas que el parpadeo.
+            -->
+            <script>
+                (function () {
+                    var cargado = Date.now();
+                    var hora = new Date(cargado).toLocaleTimeString(
+                        "es-CL", {hour: "2-digit", minute: "2-digit"});
+                    var el = document.getElementById("ag-tablero-hora");
+                    if (el) { el.textContent = "Cifras al dia de las " + hora + "."; }
+                    document.addEventListener("visibilitychange", function () {
+                        if (!document.hidden &amp;&amp; Date.now() - cargado > 120000) {
+                            location.reload();
+                        }
+                    });
+                })();
+            </script>
         </t>
     </template>
 
