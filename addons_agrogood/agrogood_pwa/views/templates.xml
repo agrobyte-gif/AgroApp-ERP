@@ -33,6 +33,17 @@
                     <span class="ag-title"><t t-esc="titulo or 'Agroapp'"/></span>
                     <span class="ag-user"><t t-esc="env.user.name"/></span>
                 </header>
+                <!--
+                    La barra de "sin conexion". Nace oculta y la enciende
+                    pwa.js cuando el telefono pierde la senal. Se avisa antes de
+                    que el usuario toque nada: un conductor en un subterraneo
+                    tiene que saber que lo que anote no va a salir, no
+                    descubrirlo despues de dar por entregada una parada.
+                -->
+                <div id="ag-offline" class="ag-offline" hidden="hidden">
+                    Sin conexion. Revisa la senal: lo que anotes ahora no se
+                    guarda hasta que vuelva.
+                </div>
                 <main class="ag-main">
                     <t t-out="0"/>
                 </main>

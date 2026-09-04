@@ -9,17 +9,34 @@
     // Llamada al servidor (formato JSON-RPC de Odoo)
     // ---------------------------------------------------------------
     async function llamar(ruta, params) {
-        const res = await fetch(ruta, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: params || {} }),
-        });
+        let res;
+        try {
+            res = await fetch(ruta, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: params || {} }),
+            });
+        } catch (e) {
+            // fetch solo revienta asi cuando no hubo red: el servidor no llego
+            // a contestar. Es distinto de un error del servidor -ahi si hay
+            // respuesta- y el mensaje tiene que decir que reintente, no que
+            // algo salio mal, porque no salio mal: no salio.
+            estadoConexion();
+            throw new Error("Sin conexion. Lo que anotaste no se guardo; "
+                + "reintenta cuando vuelva la senal.");
+        }
         const data = await res.json();
         if (data.error) {
             const d = data.error.data || {};
             throw new Error(d.message || data.error.message || "Error del servidor");
         }
         return data.result;
+    }
+
+    // Enciende o apaga la barra de sin conexion segun el estado del telefono.
+    function estadoConexion() {
+        const barra = document.getElementById("ag-offline");
+        if (barra) { barra.hidden = navigator.onLine; }
     }
 
     function aviso(texto, esError) {
@@ -250,6 +267,11 @@
     document.addEventListener("DOMContentLoaded", function () {
         initPicker();
         initDriver();
+        // La barra de sin conexion se pinta al cargar y cada vez que el
+        // telefono gana o pierde la senal.
+        estadoConexion();
+        window.addEventListener("online", estadoConexion);
+        window.addEventListener("offline", estadoConexion);
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker
                 .register("/agrogood_pwa/static/src/js/service-worker.js")

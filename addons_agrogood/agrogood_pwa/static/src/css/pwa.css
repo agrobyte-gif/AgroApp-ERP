@@ -292,6 +292,16 @@ body {
 .ag-toast.ag-show { opacity: 1; transform: translateY(0); }
 .ag-toast.ag-error { background: var(--ag-rojo); }
 
+/* La barra de sin conexion: fija arriba, ambar, imposible de no ver. Empuja el
+   contenido hacia abajo en vez de taparlo -taparlo esconderia justo el boton
+   que la persona esta por tocar sin que salga-. */
+.ag-offline {
+  position: sticky; top: 0; z-index: 60;
+  background: var(--ag-ambar); color: #fff;
+  padding: 10px 16px; font-weight: 600; font-size: 14px;
+  text-align: center;
+}
+
 /* En un telefono, el "hover" se dispara al tocar y se queda pegado despues de
    soltar. Se limita a los dispositivos con raton de verdad. */
 @media (hover: hover) and (pointer: fine) {
