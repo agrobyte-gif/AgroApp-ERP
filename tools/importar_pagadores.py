@@ -49,6 +49,18 @@ def compacto(t):
     return " ".join(str(t or "").split()).upper()
 
 
+# Cuando en la columna del cliente se escribe una de estas, no es que falte el
+# nombre: es que ese abono no es un cobro -un deposito, un cheque, plata que se
+# mueve entre cuentas propias-. En vez de dejarlo esperando un cliente que no
+# existe, se descarta con el motivo a la vista. Es la respuesta que Victor da
+# mas seguido despues de "quien es": "ese no es cliente".
+NO_ES_CLIENTE = {
+    "NO ES CLIENTE", "NOES CLIENTE", "NO CLIENTE", "NO", "NO APLICA",
+    "CUENTA PROPIA", "PROPIA", "DEPOSITO", "CHEQUE", "VALE VISTA",
+    "DEVOLUCION", "PRESTAMO", "REVERSO",
+}
+
+
 # El indice se arma una vez: buscar cliente por cliente con ilike sobre 600
 # filas es lento y ademas encuentra parecidos, que es justo lo que no se
 # quiere aqui.
@@ -59,6 +71,7 @@ for c in P.search([('customer_rank', '>', 0)]):
 libro = openpyxl.load_workbook(ORIGEN, data_only=True)
 resumen = []
 sin_ficha = {}
+descartados = {'n': 0}
 
 
 def leer_hoja(nombre_hoja, tipo):
@@ -93,6 +106,19 @@ def leer_hoja(nombre_hoja, tipo):
         if not nombre:
             vacias += 1
             continue
+        if compacto(nombre) in NO_ES_CLIENTE:
+            if tipo == 'rut':
+                movs = M.search([('state', 'in', ('unknown', 'doubtful')),
+                                 ('payer_rut', '=', valor)])
+            else:
+                movs = M.search([('state', 'in', ('unknown', 'doubtful')),
+                                 ('payer_alias', '!=', False)]).filtered(
+                    lambda m: normalizar_alias(m.payer_alias) == valor)
+            if movs:
+                movs.write({'state': 'discarded', 'partner_id': False,
+                            'match_reason': "No es un cobro: %s" % nombre})
+                descartados['n'] += len(movs)
+            continue
         cliente = indice.get(compacto(nombre))
         if not cliente:
             sin_ficha[nombre] = sin_ficha.get(nombre, 0) + 1
@@ -120,6 +146,10 @@ for hoja, nuevas, ya, vacias in resumen:
     print("      aprendidas ahora      : %d" % nuevas)
     print("      ya estaban            : %d" % ya)
     print("      sin nombre en la hoja : %d  (se dejan para despues)" % vacias)
+
+if descartados['n']:
+    print()
+    print("  Abonos descartados por 'no es cliente': %d" % descartados['n'])
 
 if sin_ficha:
     print()
