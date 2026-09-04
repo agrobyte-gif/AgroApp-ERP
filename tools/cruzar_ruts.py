@@ -109,7 +109,7 @@ ya_usados = {p.vat: p for p in Socio.search([('vat', '!=', False)])}
 print(f"\nClientes sin RUT en el sistema: {len(sin_rut)}")
 
 claves = list(catalogo.keys())
-automaticos, dudosos, sin_encontrar, chocan = [], [], [], []
+automaticos, dudosos, sin_encontrar, chocan, ya_correctos = [], [], [], [], []
 
 for socio in sin_rut:
     clave = normaliza(socio.name)
@@ -133,26 +133,48 @@ for socio in sin_rut:
     # decide una persona.
     # El RUT que ya tuviera el cliente no cuenta como conflicto consigo mismo,
     # y ademas se sabe que puede estar mal.
-    if rut in ya_usados and ya_usados[rut].id != socio.id             and ya_usados[rut].vat != socio.vat:
+    if socio.vat == rut:
+        # Ya tiene exactamente este RUT. No es un cambio: escribirlo igual
+        # dispara la nota de "RUT completado" otra vez, y al correr el cruce
+        # dos veces el cliente termina con dos notas identicas. Se cuenta y no
+        # se toca.
+        ya_correctos.append((socio, rut, origen, parecido))
+    elif rut in ya_usados and ya_usados[rut].id != socio.id             and ya_usados[rut].vat != socio.vat:
         chocan.append((socio, rut, origen, ya_usados[rut], parecido))
     elif parecido >= AUTO:
         automaticos.append((socio, rut, origen, parecido))
     else:
         dudosos.append((socio, rut, origen, parecido))
 
-print(f"\n  coincidencia clara (>= {AUTO:.0%})  : {len(automaticos)}")
+print(f"\n  ya tienen el RUT correcto      : {len(ya_correctos)}")
+print(f"  coincidencia clara (>= {AUTO:.0%})  : {len(automaticos)}")
 print(f"  a revisar por una persona      : {len(dudosos)}")
 print(f"  RUT ya usado por otro cliente  : {len(chocan)}")
 print(f"  sin coincidencia en la planilla: {len(sin_encontrar)}")
 
-if automaticos:
+# Rellenar un hueco y pisar un RUT que ya estaba no son la misma decision.
+# Poner un RUT donde no habia ninguno no le quita nada a nadie; cambiar uno que
+# ya estaba es afirmar que el anterior estaba mal, y eso va a una factura. Se
+# separan, y las sobrescrituras se muestran TODAS -nunca truncadas-, porque es
+# la lista corta que una persona tiene que mirar de verdad antes de escribir.
+rellenan = [a for a in automaticos if not (a[0].vat and a[0].vat != a[1])]
+pisan = [a for a in automaticos if a[0].vat and a[0].vat != a[1]]
+
+if pisan:
     print("\n" + "-" * 78)
-    print("SE APLICAN (coincidencia clara)")
-    for s, rut, origen, p in automaticos[:40]:
-        cambio = f"  (antes tenia {s.vat}, INCORRECTO)" if s.vat and s.vat != rut else ""
-        print(f"  {rut:<13} {s.name[:30]:<30} <- {origen[:26]}{cambio}")
-    if len(automaticos) > 40:
-        print(f"  ... y {len(automaticos)-40} mas")
+    print(f"CORRIGEN UN RUT QUE YA ESTABA ({len(pisan)}) - mirar estos antes de escribir")
+    print("  El RUT cargado al inicio venia desalineado; la planilla manda. Aun")
+    print("  asi, cada uno de estos cambia el RUT con el que se va a facturar.")
+    for s, rut, origen, p in sorted(pisan, key=lambda x: x[0].name):
+        print(f"  {s.name[:30]:<30}  {s.vat:<13} -> {rut:<13}  (de '{origen[:24]}')")
+
+if rellenan:
+    print("\n" + "-" * 78)
+    print(f"RELLENAN UN HUECO ({len(rellenan)}) - no habia RUT, no se pisa nada")
+    for s, rut, origen, p in rellenan[:30]:
+        print(f"  {rut:<13} {s.name[:30]:<30} <- {origen[:26]}")
+    if len(rellenan) > 30:
+        print(f"  ... y {len(rellenan)-30} mas")
 
 if dudosos:
     print("\n" + "-" * 78)
