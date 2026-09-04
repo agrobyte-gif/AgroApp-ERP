@@ -46,10 +46,21 @@ services:
       HOST: db
       USER: ${DB_USER}
       PASSWORD: ${DB_PASSWORD}
+      # entrada.sh usa estos para rellenar la plantilla de la config. HOST/USER/
+      # PASSWORD ademas los lee el arranque oficial de Odoo para esperar a la
+      # base; ADMIN_PASSWD solo lo usa entrada.sh -es el que no se expandia-.
+      ADMIN_PASSWD: ${ADMIN_PASSWD}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    # Se rellena la config con los secretos y recien ahi arranca Odoo: la clave
+    # maestra puesta como ${ADMIN_PASSWD} en la plantilla se quedaba literal si
+    # Odoo la leia directo. Ver entrada.sh.
+    entrypoint: ["/bin/bash", "/etc/odoo/entrada.sh"]
     volumes:
       - odoo-datos:/var/lib/odoo
       - ../addons_agrogood:/mnt/extra-addons:ro
-      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./odoo.conf.plantilla:/etc/odoo/odoo.conf.plantilla:ro
+      - ./entrada.sh:/etc/odoo/entrada.sh:ro
       - ./bitacora:/var/log/odoo
     # Tampoco expone puerto: todo entra por Caddy, que es quien tiene el
     # certificado. Asi nadie puede saltarse el HTTPS.

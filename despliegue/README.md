@@ -160,10 +160,17 @@ cd android && ./gradlew assembleRelease
 | Ver que pasa | `docker compose logs -f odoo` |
 | Reiniciar | `docker compose restart odoo` |
 | Desplegar un cambio | `git pull && docker compose restart odoo` |
-| Actualizar un modulo | `docker compose exec odoo odoo -c /etc/odoo/odoo.conf -d agroapp -u agrogood_sales --stop-after-init` |
+| Actualizar un modulo | `docker compose exec odoo odoo -c /tmp/odoo-agroapp.conf -d agroapp -u agrogood_sales --stop-after-init` |
 | Respaldo manual | `./respaldar.sh` |
 | Restaurar | `./restaurar.sh respaldos/agroapp-FECHA.dump` |
-| Consola de Odoo | `docker compose exec odoo odoo shell -c /etc/odoo/odoo.conf -d agroapp` |
+| Consola de Odoo | `docker compose exec odoo odoo shell -c /tmp/odoo-agroapp.conf -d agroapp` |
+
+> La config se llama `/tmp/odoo-agroapp.conf` y no `odoo.conf` porque no se
+> escribe a mano: `entrada.sh` la genera al arrancar rellenando
+> `odoo.conf.plantilla` con las claves del `.env`. Odoo no expande variables en
+> el `.conf`, asi que sin ese paso la contrasena maestra quedaria siendo el
+> texto `${ADMIN_PASSWD}`. Se genera en `/tmp` a proposito: con los secretos
+> dentro, no tiene que sobrevivir al contenedor ni acercarse a Git.
 
 ### Actualizar Odoo
 
@@ -172,7 +179,7 @@ Cambiar `image: odoo:18` a la version nueva, y despues:
 ```bash
 ./respaldar.sh          # SIEMPRE antes
 docker compose pull && docker compose up -d
-docker compose exec odoo odoo -c /etc/odoo/odoo.conf -d agroapp -u all --stop-after-init
+docker compose exec odoo odoo -c /tmp/odoo-agroapp.conf -d agroapp -u all --stop-after-init
 ```
 
 Las actualizaciones **menores** dentro de la 18 son seguras. Saltar a la 19

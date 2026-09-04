@@ -1,16 +1,24 @@
 [options]
-; Agroapp - PRODUCCION
+; Agroapp - PRODUCCION  (PLANTILLA, no la config final)
+;
+; Esto NO lo lee Odoo directamente. Odoo no expande variables en el .conf -solo
+; en las rutas-, asi que la contrasena maestra puesta como un hueco quedaria
+; literal y la clave del .env se ignoraria. entrada.sh rellena los huecos de
+; abajo con los secretos del entorno al arrancar el contenedor y genera el
+; .conf de verdad. Por eso esto puede vivir en Git: aqui no hay secretos, hay
+; huecos.
+;
 ; Las diferencias con desarrollo no son cosmeticas: cambian como aguanta el
 ; sistema y que puede hacer alguien desde Internet.
 
-admin_passwd = $ADMIN_PASSWD
+admin_passwd = ${ADMIN_PASSWD}
 addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
 data_dir = /var/lib/odoo
 
 db_host = db
 db_port = 5432
-db_user = $DB_USER
-db_password = $DB_PASSWORD
+db_user = ${DB_USER}
+db_password = ${DB_PASSWORD}
 db_name = agroapp
 
 ; Solo esa base es visible, y el gestor queda desactivado. Un servidor
