@@ -62,6 +62,38 @@
                 </a>
             </t>
 
+            <!--
+                Ya pedido, esperando el camion. Va al final y apagado: Johan no
+                tiene nada que hacer aca hasta que llegue -se cierra solo cuando
+                Bodega recibe- pero verlo evita que vuelva a pedir lo que ya
+                pidio. Si algo llego a medias, se dice cuanto falta.
+            -->
+            <t t-if="en_camino">
+                <h2 class="ag-h2">En camino</h2>
+                <t t-foreach="en_camino" t-as="r">
+                    <a t-att-href="'/agrogood/compras/%s' % r.id" class="ag-card ag-card-muted">
+                        <div class="ag-card-main">
+                            <span class="ag-card-title"><t t-esc="r.product_id.name"/></span>
+                            <span class="ag-card-sub">
+                                <t t-esc="'{:g}'.format(r.qty_requested)"/>
+                                <t t-esc="r.product_uom_id.name"/>
+                                <t t-if="r.supplier_id"> · <t t-esc="r.supplier_id.name"/></t>
+                            </span>
+                            <t t-if="r.qty_received and r.qty_received &lt; r.qty_requested">
+                                <span class="ag-card-sub ag-warn-text">
+                                    Llego <t t-esc="'{:g}'.format(r.qty_received)"/>,
+                                    faltan <t t-esc="'{:g}'.format(r.qty_requested - r.qty_received)"/>
+                                    <t t-esc="r.product_uom_id.name"/>
+                                </span>
+                            </t>
+                        </div>
+                        <span class="ag-chip ag-chip-soft">
+                            <t t-esc="'A medias' if r.qty_received else 'Pedido'"/>
+                        </span>
+                    </a>
+                </t>
+            </t>
+
             <t t-set="v" t-value="env['agrogood.estaticos'].version(
                 'agrogood_pwa/static/src/js/compras.js')"/>
             <script t-attf-src="/agrogood_pwa/static/src/js/compras.js?v=#{v}"/>

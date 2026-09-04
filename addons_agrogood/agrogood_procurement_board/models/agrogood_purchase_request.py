@@ -162,6 +162,11 @@ class AgrogoodPurchaseRequest(models.Model):
     is_late = fields.Boolean(
         string="Atrasada", compute='_compute_is_late', search='_search_is_late',
     )
+    qty_received = fields.Float(
+        string="Recibido", compute='_compute_qty_received',
+        help="Cuanto de lo pedido ya llego a bodega. Se lee de la orden de "
+             "compra, que Odoo actualiza al validar cada recepcion.",
+    )
 
     # ------------------------------------------------------------------
     # Calculos
@@ -191,6 +196,14 @@ class AgrogoodPurchaseRequest(models.Model):
             req.is_late = bool(
                 req.date_needed and req.date_needed < hoy and req.state not in CERRADOS
             )
+
+    @api.depends('purchase_order_id.order_line.qty_received', 'product_id')
+    def _compute_qty_received(self):
+        for req in self:
+            po = req.purchase_order_id
+            lineas = po.order_line.filtered(
+                lambda l: l.product_id == req.product_id) if po else False
+            req.qty_received = sum(lineas.mapped('qty_received')) if lineas else 0.0
 
     def _search_is_late(self, operator, value):
         hoy = fields.Date.context_today(self)

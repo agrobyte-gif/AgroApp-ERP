@@ -119,6 +119,12 @@ body {
 .ag-card-active { border-color: var(--ag-ambar); border-width: 2px;
                   background: var(--ag-ambar-claro); }
 .ag-card-done { opacity: .62; }
+/* Tarjeta informativa: esta ahi para mirarse, no para tocarse. Apagada, pero
+   no tanto como una terminada -sigue siendo algo que esta pasando-. */
+.ag-card-muted { opacity: .74; }
+/* Un aviso dentro de la tarjeta: "faltan 20 kg". Ambar, que es el color de
+   "ojo con esto" del resto de la app, no rojo -no es un error, es un pendiente. */
+.ag-warn-text { color: var(--ag-ambar); font-weight: 600; }
 .ag-card-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .ag-card-title { font-weight: 600; font-size: 17px; }
 .ag-card-sub { color: var(--ag-tinta-2); font-size: 14px;

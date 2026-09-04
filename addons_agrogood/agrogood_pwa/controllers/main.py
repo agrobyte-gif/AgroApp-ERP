@@ -1635,6 +1635,12 @@ class AgrogoodCompras(http.Controller):
         abiertas = Req.search(
             [('state', 'in', ('pending', 'searching', 'quoting', 'partial'))],
             order='priority desc, date_needed, id')
+        # Lo ya pedido que todavia no llega. Sale de la pizarra activa -Johan ya
+        # no puede hacer nada con ello hasta que aparezca el camion- pero se
+        # muestra aparte para que sepa que esta en camino y no lo vuelva a
+        # pedir. Se cierra solo cuando Bodega recibe.
+        en_camino = Req.search([('state', '=', 'purchased')],
+                               order='date_needed, id')
         return request.render('agrogood_pwa.compras_home', {
             # El orden lo decide la urgencia, no la fecha de creacion: lo que
             # se necesita hoy va arriba aunque se haya pedido esta manana.
@@ -1644,6 +1650,7 @@ class AgrogoodCompras(http.Controller):
                 lambda r: r.priority != '1' and not r.is_late),
             'listas_para_orden': abiertas.filtered(
                 lambda r: r.supplier_id and not r.purchase_order_id),
+            'en_camino': en_camino,
             'usuario': request.env.user,
         })
 
