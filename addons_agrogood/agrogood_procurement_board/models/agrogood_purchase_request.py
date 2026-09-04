@@ -1,5 +1,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools import float_compare
 
 # Los nueve estados por los que pasa una solicitud. El orden es el de la
 # pizarra: se leen de izquierda a derecha como avanza el trabajo, y los cuatro
@@ -254,6 +255,54 @@ class AgrogoodPurchaseRequest(models.Model):
                     nombre=req.name, estado=dict(ESTADOS)[req.state],
                 ))
         return self._cambiar_estado('received')
+
+    def _cerrar_por_recepcion(self):
+        """Cierra la solicitud cuando Bodega recibe lo que Compras pidio.
+
+        Es el cruce que faltaba entre las dos pantallas. Sin el, una solicitud
+        se queda en 'Comprado' para siempre aunque la mercaderia ya haya
+        llegado y este en la bodega: la pizarra de Compras y el control de
+        Bodega vivian separados, y alguien tenia que acordarse de marcar a mano
+        lo que el sistema ya sabia.
+
+        Lo recibido se lee de la orden de compra -Odoo ya lo lleva por linea al
+        validar la recepcion-, no del picking suelto: una compra puede llegar
+        en dos viajes, y lo que cierra la solicitud es el total, no el primer
+        camion.
+
+        Solo se cierra si llego TODO. Si llego de menos, se anota cuanto y la
+        solicitud sigue abierta a la espera del resto: dar por recibida media
+        entrega esconderia lo que todavia falta conseguir. Reusar el estado
+        'Parcialmente encontrado' seria mentir -ese es de la feria, no de la
+        bodega-, asi que un recibo parcial deja la solicitud en 'Comprado' con
+        una nota, no la mueve.
+        """
+        for req in self:
+            po = req.purchase_order_id
+            if not po or req.state != 'purchased':
+                continue
+            lineas = po.order_line.filtered(
+                lambda l: l.product_id == req.product_id)
+            if not lineas:
+                continue
+            recibido = sum(lineas.mapped('qty_received'))
+            pedido = req.qty_purchased or sum(lineas.mapped('product_qty'))
+            rounding = req.product_uom_id.rounding or 0.01
+            if float_compare(recibido, 0.0, precision_rounding=rounding) <= 0:
+                continue
+            uom = req.product_uom_id.name
+            if float_compare(recibido, pedido, precision_rounding=rounding) >= 0:
+                req.state = 'received'
+                req.message_post(body=_(
+                    "Recibido en bodega: %(qty)s %(uom)s. La solicitud se "
+                    "cierra sola.",
+                    qty="{:g}".format(recibido), uom=uom))
+            else:
+                req.message_post(body=_(
+                    "Recibido parcial en bodega: %(r)s de %(p)s %(uom)s. Sigue "
+                    "abierta a la espera del resto.",
+                    r="{:g}".format(recibido), p="{:g}".format(pedido),
+                    uom=uom))
 
     # ------------------------------------------------------------------
     # Paso a orden de compra
